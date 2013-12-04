@@ -16,6 +16,10 @@
 
 #include <micros/api.h>
 
+static int get_beat(uint64_t micros)
+{
+        return (micros / (uint64_t) 1e6);
+}
 
 extern void render_next_2chn_48khz_audio(uint64_t time_micros,
                 int const sample_count, double left[/*sample_count*/],
@@ -24,9 +28,20 @@ extern void render_next_2chn_48khz_audio(uint64_t time_micros,
         static double sc_phase = 0.0;
         static double l_phase = 0.0;
         static double r_phase = 0.0;
-        double pert = cos(6.30 * time_micros / 1e6 / 11.0) + sin(
-                              6.30 * time_micros / 1e6 / 37.0);
-        double const drone_hz = 110.0 + 20.0 * pert*pert;
+
+        int const beat = get_beat(time_micros);
+
+        double sequence_hz[] = {
+                110.0,
+                440.0,
+                110.0 * (1 + 1/sqrt(2.0)),
+                440.0 * (1 + 1/sqrt(2.0)),
+        };
+
+        double const pert = cos(6.30 * time_micros / 1e6 / 11.0) + sin(
+                                    6.30 * time_micros / 1e6 / 37.0);
+        double const drone_hz = sequence_hz[beat % (sizeof sequence_hz / sizeof
+                                            sequence_hz[0])] + 20.0 * pert*pert;
 
         for (int i = 0; i < sample_count; i++) {
                 double sincos[2] = {
@@ -105,13 +120,32 @@ extern void render_next_gl(uint64_t time_micros)
                 }
         } init;
 
+        typedef float rgb __attribute__((ext_vector_type(3)));
+
+        rgb sequence_rgb[] = {
+                (rgb){0.31f, 0.27f, 0.29f},
+                (rgb){0.62f, 0.54f, 0.58f},
+                (rgb)
+                {
+                        0.31f, 0.27f, 0.29f
+                } * (1 + 1/sqrtf(2.0)),
+                (rgb)
+                {
+                        0.62f, 0.54f, 0.58f
+                } * (1 + 1/sqrtf(2.0)),
+        };
+
+        int const beat = get_beat(time_micros);
+        rgb current_rgb = sequence_rgb[beat % (sizeof sequence_rgb / sizeof
+                                               sequence_rgb[0])];
+
         double const phase = 6.30 * time_micros / 1e6 / 11.0;
         float sincos[2] = {
                 static_cast<float>(0.49 * sin(phase)),
                 static_cast<float>(0.49 * cos(phase)),
         };
         float const argb[4] = {
-                0.0f, 0.31f + 0.39f * sincos[0], 0.27f + 0.39f * sincos[1], 0.29f
+                0.0f, current_rgb.x + 0.39f * sincos[0], current_rgb.y + 0.39f * sincos[1], current_rgb.z,
         };
         glClearColor (argb[1], argb[2], argb[3], argb[0]);
         glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
