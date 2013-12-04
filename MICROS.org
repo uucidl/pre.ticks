@@ -1,0 +1,142 @@
+* Micros, a playground for demos
+
+This repository is a minimalistic playground for writing demos against OSX or Windows, 
+with an emphasis on making it possible to collaborate easily between multiple individuals.
+
+The build system is self-contained, it enforces a strict coding standard with warnings all
+activated and automatically formatting the code for you.
+
+It standardizes on C++11 and OpenGL 3.2 and targets Darwin/OSX past 10.7 (Lion) and 
+NT/Windows 7 and beyond.
+
+It’s all on github ready to be forked or downloaded:
+    http://github.com/uucidl/uu.micros
+
+Fork it, and compose your demo inside src/. Start with main.cpp to get an idea.
+
+* History
+
+I decided to write this playground when reading Alex Evans' idea about
+doing "round robin" demo projects:
+
+https://twitter.com/mmalex/status/403818676224544768
+#+begin_example
+<mmalex> Been wondering about doing an async 'chain' collab demo for years: rules: c++/GL only, 1 week work then pass it on... Repeat until deadline
+<javiercampos> @mmalex Isn't that the exact opposite to async? :-)
+<gpakosz> @mmalex on top of existing ground work demo system or from scratch?
+<mmalex> @javiercampos heh :) I guess you're right! What's the right word...
+<LiaSae> @mmalex The technical term for this in the cross-stitch word is round-robin :) Could apply as well!
+<LiaSae> @mmalex Make that "world", d'oh.
+<kamidphish> @mmalex Is that like the old C64 demos?
+<nvining> @mmalex I'm in.
+<Flawe> @mmalex very cool idea!
+<uucidl> @mmalex I always wanted to do this yet it's always a problem with coders being anal about their frameworks and build systems etc..
+<mmalex> @uucidl lowest common denominator ftw! build batch file/shellscript, minimum external deps (GL/playmp3()/gnurocket/stb_*), GO! ?
+<uucidl> @mmalex and no data file, everything generated or in-source ;)
+<mmalex>@uucidl yeah! and, drop playmp3() and replace with fill_48khz_stereo_buf_plz() callback -> synth.
+<ElMarcel> @Flawe @mmalex Awesome!
+<DeanoC>@mmalex could be fun. Different section per author or keep modifying the same bit, see where it evolves?
+<DeanoC>@mmalex One section, where each week its evolved by the next coder or each do a seperate section link to the previous? Either way sounds fun
+<keyboardjockey> @mmalex interesting. Should have each person branch off and have the next dev perform the merge, to become familiar.
+#+end_example
+
+Tangent about fabric:
+
+#+begin_example
+<mmalex> @LiaSae we could upload the result to ravelry! :)
+<‏LiaSae> @mmalex I'd love to see more fabric-like style in games (Epic Yarn, Little Big Planet, and.... there ain't much else) / demos, so why not :)
+<_psonice> @LiaSae there was zen bondage / zen bound, if that counts. A game full of soft objects/scenery instead of hard would be cool tho! @mmalex
+#+end_example
+
+* Specs
+
+- shell script build (clean + rebuild + test + run)
+- host system with =OpenGL 3.2= core context and 48khz stereo audio
+- source only libraries accepted
+- =C++11= only supported
+
+Personal comment:
+- To avoid arguing about code style, putting in the "artistic style" code formatter.
+
+* Requirements
+
+- Git (+ on windows the msys environment that comes with it)
+find it at http://git-scm.com/
+- Bash (on windows, use git bash)
+- a C++11 compiler (gcc, clang, visual studio)
+- OSX >= 10.7 (Darwin >= 11.4) and Windows >= 7 (NT >= 6.1)
+
+All the rest is shipped within the tree
+
+* API
+:PROPERTIES:
+:mkdirp: yes
+:END:
+
+Using our experience to define the most minimal and useful hooks to
+code a demo we come with the following:
+
+#+begin_src c++ :mkdir yes :tangle include/api.h
+#include <cstdint>
+
+//! initialize runtime (and start the demo)
+extern void runtime_init();
+
+//! current time in microseconds
+extern uint64_t now_micros();
+
+//! entry point: called for each new video frame (called in strict order)
+//! \param time_micros scheduling time for the frame
+extern void render_next_gl(uint64_t time_micros);
+
+//! entry point: called for each new audio frame (called in strict order)
+//! \param time_micros scheduling time for the first sample of the frame
+//! \param sample_count count of stereo audio sample to fill
+//! \param left buffer of audio samples for the left channel
+//! \param right buffer of audio samples for the right channel
+extern void render_next_2chn_48khz_audio(uint64_t time_micros,
+		int const sample_count, double left[/*sample_count*/],
+		double right[/*sample_count*/]);
+#+end_src
+
+* Writing a new runtime
+
+Put your os specific code under a subdirectory of runtime like so
+
+=runtime/Darwin/display.cpp=
+
+Then hook it up inside the platform specific compile function.
+
+It should open a window with an OpenGL context. It should quit the
+demo when pressing ESC or Right clicking.
+
+It should continuously redisplay frames and delegate their rendering
+to the API entry points.
+
+* Changing the code style
+
+Edit the .astylerc file at the root
+
+Don't put editor specific stuff in source files
+
+* Build script
+
+The script always rebuild the entire demo. It should not grow big
+enough for it to matter, and it is a guarantee of short feedback
+loops.
+
+It should always create files in a separate dirs according to hostname
+
+The build script can be edited to define compilation flags per machine
+or platform (for custom/weird environments)
+
+Simply add a new function to add your per machine customization.
+
+* Ideas
+
+- in lib you will find all stb libs for image loading, truetype/vorbis
+  support at least. All the rest can come from demo or c++11 or any
+  other source available lib that can be put in the tree.
+
+- a base runtime will be provided for mac/linux/pc (based on the most
+  basic lib available)
