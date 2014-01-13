@@ -201,6 +201,11 @@ void ShaderProgram::validate() const
         }
 }
 
+GLuint ShaderProgram::ref() const
+{
+        return impl->program.ref;
+}
+
 ShaderProgram::ShaderProgram() = default;
 ShaderProgram::~ShaderProgram() = default;
 ShaderProgram::ShaderProgram(ShaderProgram&& other) :

@@ -20,6 +20,8 @@
 using std::string;
 
 #include "shader_types.h"
+#include "buffer_types.h"
+#include "fragops_types.h"
 
 static int get_beat(uint64_t micros)
 {
@@ -118,11 +120,15 @@ static void test_json()
 
 string const VERTEX_SHADER =
         "#version 150\n"
+        "in vec4 position;\n"
         "void main() {\n"
+        "    gl_Position = position - vec4(0.5, 0.0, 0.0, 0.0);\n"
         "}";
 string const FRAGMENT_SHADER =
-        "#version 150\n"
+        "#version 150\n\n"
+        "out vec4 color;\n"
         "void main() {\n"
+        "    color = vec4(1.0, 0.0, 0.0, 0.70);\n"
         "}";
 
 extern void render_next_gl(uint64_t time_micros)
@@ -135,11 +141,50 @@ extern void render_next_gl(uint64_t time_micros)
                         printf("OpenGL version %s\n", glGetString(GL_VERSION));
                         test_json();
 
-                        shaders = ShaderProgram::create(VERTEX_SHADER, FRAGMENT_SHADER);
+                        shader = ShaderProgram::create(VERTEX_SHADER, FRAGMENT_SHADER);
+                        position_attr = glGetAttribLocation(shader.ref(), "position");
+
+                        float vertices[] = {
+                                0.0f, 0.0f,
+                                0.0f, 1.0f,
+                                1.0f, 1.0f,
+                                1.0f, 0.0f,
+                        };
+
+                        GLuint indices[] = {
+                                0, 1, 2, 2, 3, 0
+                        };
+
+                        {
+                                WithArrayBufferScope scope(vbo_vertices);
+                                glBufferData(GL_ARRAY_BUFFER, sizeof vertices, vertices, GL_STREAM_DRAW);
+                        }
+
+                        {
+                                WithElementArrayBufferScope scope(vbo_indices);
+                                glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof indices, indices,
+                                             GL_STREAM_DRAW);
+                        }
+
+                        printf("defining vertex array %d\n", vao_quad.ref);
+                        {
+                                WithVertexArrayScope vascope(vao_quad);
+
+                                glEnableVertexAttribArray(position_attr);
+
+                                glBindBuffer(GL_ARRAY_BUFFER, vbo_vertices.ref);
+                                glVertexAttribPointer(position_attr, 2, GL_FLOAT, GL_FALSE, 0, 0);
+
+                                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_indices.ref);
+                        }
                 }
 
-                ShaderProgram shaders;
-        } init;
+                ShaderProgram shader;
+                Buffer vbo_vertices;
+                Buffer vbo_indices;
+                VertexArray vao_quad;
+                GLuint position_attr;
+        } resources;
 
         typedef struct Rgb {
                 float x;
@@ -180,6 +225,15 @@ extern void render_next_gl(uint64_t time_micros)
         };
         glClearColor (argb[1], argb[2], argb[3], argb[0]);
         glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+        {
+                WithVertexArrayScope vascope(resources.vao_quad);
+                WithBlendEnabledScope blend(GL_SRC_COLOR, GL_DST_COLOR);
+                WithShaderProgramScope with_shader(resources.shader);
+                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+                resources.shader.validate();
+        }
 }
 
 int main (int argc, char** argv)

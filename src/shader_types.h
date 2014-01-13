@@ -8,6 +8,7 @@ public:
                                     std::string const& fragment_shader_code);
 
         void validate() const;
+        GLuint ref() const;
 
         ShaderProgram();
         ~ShaderProgram();
@@ -18,4 +19,23 @@ public:
 
         class Impl;
         std::unique_ptr<Impl> impl;
+};
+
+class WithShaderProgramScope
+{
+public:
+        WithShaderProgramScope(ShaderProgram const& program)
+        {
+                glUseProgram(program.ref());
+        }
+
+        ~WithShaderProgramScope()
+        {
+                glUseProgram(0);
+        }
+private:
+        WithShaderProgramScope(WithShaderProgramScope&) = delete;
+        WithShaderProgramScope(WithShaderProgramScope&&) = delete;
+        WithShaderProgramScope& operator=(WithShaderProgramScope&) = delete;
+        WithShaderProgramScope& operator=(WithShaderProgramScope&&) = delete;
 };
