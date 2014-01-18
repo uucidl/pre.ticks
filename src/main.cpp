@@ -61,6 +61,9 @@ extern void render_next_2chn_48khz_audio(uint64_t time_micros,
                 left[i] += 0.35 * pert * pert * rm;
                 right[i] += 0.35 * pert * pert * rm;
 
+                left[i] *= 0.3;
+                right[i] *= 0.3;
+
                 l_phase += (1.0f + 0.12f * sincos[0]) * drone_hz * 6.30 / 48000.0;
                 r_phase += (1.0f + 0.12f * sincos[1]) * drone_hz * 6.30 / 48000.0;
                 sc_phase += 6.30 / 48000.0 / 7.0;
