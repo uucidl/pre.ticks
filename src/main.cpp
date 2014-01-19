@@ -1,3 +1,9 @@
+#include <fstream>
+#include <future>
+#include <sstream>
+#include <string>
+#include <vector>
+
 #include <math.h>
 #include <stdio.h> // for printf
 
@@ -16,9 +22,7 @@
 
 #include <micros/api.h>
 
-#include <string>
-using std::string;
-
+#include "main_types.h"
 #include "shader_types.h"
 #include "buffer_types.h"
 #include "fragops_types.h"
@@ -118,32 +122,26 @@ static void test_json()
         UJFree(state);
 }
 
-string const VERTEX_SHADER =
-        "#version 150\n"
-        "in vec4 position;\n"
-        "void main() {\n"
-        "    gl_Position = position - vec4(0.5, 0.0, 0.0, 0.0);\n"
-        "}";
-string const FRAGMENT_SHADER =
-        "#version 150\n\n"
-        "out vec4 color;\n"
-        "void main() {\n"
-        "    color = vec4(1.0, 0.0, 0.0, 0.70);\n"
-        "}";
-
 extern void render_next_gl(uint64_t time_micros)
 {
-        static class DoOnce
+        static class DoOnce : public DisplayThreadTasks, public FileSystem
         {
         public:
-                DoOnce()
+                void add_task(std::function<bool()>&& task)
+                {
+                        std::lock_guard<std::mutex> lock(tasks_mtx);
+                        tasks.emplace_back(task);
+                }
+
+
+                DoOnce() : base_path("./src"), shader_loader(*this, *this)
                 {
                         printf("OpenGL version %s\n", glGetString(GL_VERSION));
                         test_json();
-
-                        shader = ShaderProgram::create(VERTEX_SHADER, FRAGMENT_SHADER);
-                        position_attr = glGetAttribLocation(shader.ref(), "position");
-
+                        shader_loader.load_shader("main.vs", "main.fs", [=](ShaderProgram&& input) {
+                                shader = std::move(input);
+                                position_attr = glGetAttribLocation(shader.ref(), "position");
+                        });
                         float vertices[] = {
                                 0.0f, 0.0f,
                                 0.0f, 1.0f,
@@ -179,12 +177,41 @@ extern void render_next_gl(uint64_t time_micros)
                         }
                 }
 
+                std::ifstream open_file(std::string relpath) const
+                {
+                        auto stream = std::ifstream(base_path + "/" + relpath);
+
+                        if (stream.fail()) {
+                                throw std::runtime_error("could not load file at " + relpath);
+                        }
+
+                        return stream;
+                }
+
+                void run()
+                {
+                        std::lock_guard<std::mutex> lock(tasks_mtx);
+                        for (auto& task : tasks) {
+                                std::future<bool> future = task.get_future();
+                                task();
+                                future.get();
+                        }
+                        tasks.clear();
+                }
+
+                std::string base_path;
                 ShaderProgram shader;
                 Buffer vbo_vertices;
                 Buffer vbo_indices;
                 VertexArray vao_quad;
                 GLuint position_attr;
+
+                std::mutex tasks_mtx;
+                std::vector<std::packaged_task<bool()>> tasks;
+                ShaderLoader shader_loader;
         } resources;
+
+        resources.run();
 
         typedef struct Rgb {
                 float x;

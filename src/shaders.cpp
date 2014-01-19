@@ -10,6 +10,7 @@ using std::string;
 using std::stringstream;
 
 #include "shader_types.h"
+#include "main_types.h"
 
 class Program
 {
@@ -206,7 +207,7 @@ GLuint ShaderProgram::ref() const
         return impl->program.ref;
 }
 
-ShaderProgram::ShaderProgram() = default;
+ShaderProgram::ShaderProgram() : impl(new ShaderProgram::Impl()) {}
 ShaderProgram::~ShaderProgram() = default;
 ShaderProgram::ShaderProgram(ShaderProgram&& other) :
         impl(std::move(other.impl)) {}
@@ -214,4 +215,41 @@ ShaderProgram& ShaderProgram::operator=(ShaderProgram&& other)
 {
         impl = std::move(other.impl);
         return *this;
+}
+
+void ShaderLoader::load_shader(std::string vs_path,
+                               std::string fs_path,
+                               std::function<void(ShaderProgram&&)> bind_shader)
+{
+        auto future_shader = std::async(std::launch::async, [=]() {
+                try {
+                        auto vs = file_system.open_file(vs_path);
+                        auto fs = file_system.open_file(fs_path);
+                        std::string vs_content {
+                                std::istreambuf_iterator<char>(vs),
+                                std::istreambuf_iterator<char>()
+                        };
+                        std::string fs_content {
+                                std::istreambuf_iterator<char>(fs),
+                                std::istreambuf_iterator<char>()
+                        };
+
+                        display_tasks.add_task([=] () {
+                                auto shader = ShaderProgram::create(vs_content, fs_content);
+                                auto success = shader.ref() != 0;
+                                bind_shader(std::move(shader));
+
+                                return success;
+                        });
+                } catch (std::exception& e) {
+                        // pass any exception to display thread so it can be treated
+                        display_tasks.add_task([=] () -> bool {
+                                throw e;
+                        });
+                }
+
+        });
+
+        std::lock_guard<std::mutex> lock(futures_mtx);
+        futures.push_back(std::move(future_shader));
 }
