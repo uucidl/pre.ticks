@@ -16,9 +16,14 @@
 
 #include <micros/api.h>
 
+#include <string>
+using std::string;
+
+#include "shader_types.h"
+
 static int get_beat(uint64_t micros)
 {
-        return (micros / (uint64_t) 1e6);
+        return (int) (micros / (uint64_t) 1e6);
 }
 
 extern void render_next_2chn_48khz_audio(uint64_t time_micros,
@@ -111,6 +116,15 @@ static void test_json()
         UJFree(state);
 }
 
+string const VERTEX_SHADER =
+        "#version 150\n"
+        "void main() {\n"
+        "}";
+string const FRAGMENT_SHADER =
+        "#version 150\n"
+        "void main() {\n"
+        "}";
+
 extern void render_next_gl(uint64_t time_micros)
 {
         static class DoOnce
@@ -120,22 +134,36 @@ extern void render_next_gl(uint64_t time_micros)
                 {
                         printf("OpenGL version %s\n", glGetString(GL_VERSION));
                         test_json();
+
+                        shaders = ShaderProgram::create(VERTEX_SHADER, FRAGMENT_SHADER);
                 }
+
+                ShaderProgram shaders;
         } init;
 
-        typedef float rgb __attribute__((ext_vector_type(3)));
+        typedef struct Rgb {
+                float x;
+                float y;
+                float z;
+
+                Rgb(float x, float y, float z) :
+                        x(x), y(y), z(z) {}
+
+                Rgb operator * (double f)
+                {
+                        return Rgb((float) f*x, (float) f*y, (float) f*z);
+                }
+        } rgb;
 
         rgb sequence_rgb[] = {
-                (rgb){0.31f, 0.27f, 0.29f},
-                (rgb){0.62f, 0.54f, 0.58f},
-                (rgb)
-                {
+                rgb(0.31f, 0.27f, 0.29f),
+                rgb(0.62f, 0.54f, 0.58f),
+                rgb(
                         0.31f, 0.27f, 0.29f
-                } * (1 + 1/sqrtf(2.0)),
-                (rgb)
-                {
+                ) * (1 + 1/sqrtf(2.0)),
+                rgb(
                         0.62f, 0.54f, 0.58f
-                } * (1 + 1/sqrtf(2.0)),
+                ) * (1 + 1/sqrtf(2.0)),
         };
 
         int const beat = get_beat(time_micros);
