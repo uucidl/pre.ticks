@@ -2,9 +2,17 @@ Ticks
 
 A repository based on uu.micros with experiments in demomaking patterns.
 
-To build:
+To run the examples (there are more than one)
 
-   $ ./build.sh
+    $ ./draw-on-quad-with-shader.sh
+    $ ./play-house-drum-pattern.sh
+
+i.e.
+    $ ./<example-name>.sh
+
+The corresponding source code is in
+
+    ./src/<example-name>
 
 * After cloning from Git:
 

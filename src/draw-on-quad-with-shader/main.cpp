@@ -22,10 +22,10 @@
 
 #include <micros/api.h>
 
-#include "main_types.h"
-#include "shader_types.h"
-#include "buffer_types.h"
-#include "fragops_types.h"
+#include "../common/main_types.h"
+#include "../common/shader_types.h"
+#include "../common/buffer_types.h"
+#include "../common/fragops_types.h"
 
 static int get_beat(uint64_t micros)
 {
@@ -134,7 +134,8 @@ extern void render_next_gl3(uint64_t time_micros)
                 }
 
 
-                DoOnce() : base_path("./src"), shader_loader(*this, *this)
+                DoOnce() : base_path("./src/draw-on-quad-with-shader"), shader_loader(*this,
+                                        *this)
                 {
                         printf("OpenGL version %s\n", glGetString(GL_VERSION));
                         test_json();
