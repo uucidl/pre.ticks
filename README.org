@@ -23,4 +23,4 @@ The general pattern being for an example named <example-name>, with its correspo
 
 * Runtime
 
-  see [[http://github/uucidl/uu.micros][uu.micros]]
+  see [[http://github.com/uucidl/uu.micros][uu.micros]]
