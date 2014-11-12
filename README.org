@@ -1,4 +1,4 @@
-Ticks
+* Ticks
 
 A repository based on uu.micros with experiments in demomaking patterns.
 
@@ -23,4 +23,4 @@ The general pattern being for an example named <example-name>, with its correspo
 
 * Runtime
 
-  see [file:modules/uu.micros]
+  see [[./modules/uu.micros][uu.micros]]
