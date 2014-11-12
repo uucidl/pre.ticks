@@ -2,22 +2,25 @@ Ticks
 
 A repository based on uu.micros with experiments in demomaking patterns.
 
+* After cloning this repository from Git, do
+
+#+begin_src
+   $ ./post-clone.sh
+#+end_src
+
 To run the examples (there are more than one)
 
+#+begin_src sh
     $ ./draw-on-quad-with-shader.sh
     $ ./play-house-drum-pattern.sh
+#+end_src
 
-i.e.
+The general pattern being for an example named <example-name>, with its corresponding source code at =./src/<example-name>=
+
+#+begin_src
     $ ./<example-name>.sh
-
-The corresponding source code is in
-
-    ./src/<example-name>
-
-* After cloning from Git:
-
-   $ ./post-clone.sh
+#+end_src
 
 * Runtime
 
-  see [file:MICROS.org]
+  see [file:modules/uu.micros]
