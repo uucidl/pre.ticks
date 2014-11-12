@@ -2,6 +2,14 @@ Ticks
 
 A repository based on uu.micros with experiments in demomaking patterns.
 
+To build:
+
+   $ ./build.sh
+
+* After cloning from Git:
+
+   $ ./post-clone.sh
+
 * Runtime
 
   see [file:MICROS.org]

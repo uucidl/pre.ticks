@@ -1,0 +1,3 @@
+[submodule "modules/uu.micros"]
+	path = modules/uu.micros
+	url = https://github.com/uucidl/uu.micros.git
