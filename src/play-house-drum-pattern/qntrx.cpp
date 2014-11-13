@@ -7,19 +7,26 @@
 
 const double TAU = 6.28318530717958647692528676655900576839433879875021;
 
+/**
+ * A set of values going from 0 to 1 at various speeds, representing
+ * various cycles in the passage of time.
+ *
+ * They can be used to scan wavetables or be fed to functions such as
+ * sin/cos etc.. to produce oscillators or envelopes.
+ */
 class Phasers
 {
 public:
-        size_t add(double frequency, double offset = 0.0)
+        size_t create(double frequency, double offset = 0.0)
         {
                 size_t const id = data.size();
                 data.emplace_back(offset, frequency / 48000.0);
                 return id;
         }
 
-        size_t add_follower(size_t main, double ratio = 1.0, double offset = 0.0)
+        size_t create_follower(size_t main, double ratio = 1.0, double offset = 0.0)
         {
-                size_t const id = add(0.0, offset);
+                size_t const id = create(0.0, offset);
                 followers.emplace_back(id, main, ratio);
                 return id;
         }
@@ -135,15 +142,15 @@ extern void render_next_2chn_48khz_audio(uint64_t time_micros,
         static Phasers phasers;
 
         static struct SharedPhasers {
-                size_t shifter = phasers.add(48000.0 / 64.0);
-                size_t measure = phasers.add(0.50);
-                size_t sometime = phasers.add_follower(measure, 1.0 / 16.0 / 8.0);
+                size_t shifter = phasers.create(48000.0 / 64.0);
+                size_t measure = phasers.create(0.50);
+                size_t sometime = phasers.create_follower(measure, 1.0 / 16.0 / 8.0);
         } shared_phasers;
 
         static struct KickPhasers {
-                size_t a = phasers.add_follower(shared_phasers.measure, 4.0);
-                size_t aa = phasers.add_follower(a);
-                size_t osc = phasers.add(50.0);
+                size_t a = phasers.create_follower(shared_phasers.measure, 4.0);
+                size_t aa = phasers.create_follower(a);
+                size_t osc = phasers.create(50.0);
         } kick_phasers;
 
         struct Kick {
@@ -156,7 +163,7 @@ extern void render_next_2chn_48khz_audio(uint64_t time_micros,
         } kick;
 
         static struct BounceKickPhasers {
-                size_t osc = phasers.add_follower(kick_phasers.osc);
+                size_t osc = phasers.create_follower(kick_phasers.osc);
         } bounce_kick_phasers;
 
         struct BounceKick {
@@ -166,9 +173,9 @@ extern void render_next_2chn_48khz_audio(uint64_t time_micros,
         } bounce_kick;
 
         static struct SnarePhasers {
-                size_t a = phasers.add_follower(kick_phasers.a, 1.0/2.0, 0.50);
-                size_t osc = phasers.add(180.0);
-                size_t mod_osc = phasers.add(90.0);
+                size_t a = phasers.create_follower(kick_phasers.a, 1.0/2.0, 0.50);
+                size_t osc = phasers.create(180.0);
+                size_t mod_osc = phasers.create(90.0);
         } snare_phasers;
 
         struct Snare {
@@ -197,17 +204,17 @@ extern void render_next_2chn_48khz_audio(uint64_t time_micros,
         } hihat;
 
         static struct HihatPhasers {
-                size_t a = phasers.add_follower(kick_phasers.a, 1.0/2.0, 0.50);
-                size_t osc = phasers.add(180.0);
-                size_t mod_osc = phasers.add(90.0);
+                size_t a = phasers.create_follower(kick_phasers.a, 1.0/2.0, 0.50);
+                size_t osc = phasers.create(180.0);
+                size_t mod_osc = phasers.create(90.0);
         } hihat_phasers;
 
         static struct BassPhasers {
-                size_t b = phasers.add(4.0);
-                size_t ba = phasers.add_follower(b);
-                size_t osc = phasers.add(110.0);
-                size_t sweep = phasers.add(1.0/32.0);
-                size_t modulator_osc = phasers.add(110.0);
+                size_t b = phasers.create(4.0);
+                size_t ba = phasers.create_follower(b);
+                size_t osc = phasers.create(110.0);
+                size_t sweep = phasers.create(1.0/32.0);
+                size_t modulator_osc = phasers.create(110.0);
         } bass_phasers;
 
         struct Bass {
@@ -222,19 +229,19 @@ extern void render_next_2chn_48khz_audio(uint64_t time_micros,
         } bass;
 
         static struct MidPhasers {
-                size_t m = phasers.add(1.0/16.0, 0.750);
-                size_t root_osc = phasers.add(220.0);
-                size_t modulator_osc = phasers.add(220.0);
-                size_t detuned_osc = phasers.add_follower(root_osc, 1.0037);
+                size_t m = phasers.create(1.0/16.0, 0.750);
+                size_t root_osc = phasers.create(220.0);
+                size_t modulator_osc = phasers.create(220.0);
+                size_t detuned_osc = phasers.create_follower(root_osc, 1.0037);
                 size_t major[2];
                 size_t minor[2];
 
                 MidPhasers()
                 {
-                        major[0] = phasers.add_follower(root_osc, 5.0 / 4.0);
-                        minor[1] = phasers.add_follower(root_osc, 6.0 / 4.0);
-                        minor[0] = phasers.add_follower(root_osc, 12.0 / 10.0);
-                        minor[1] = phasers.add_follower(root_osc, 15.0 / 10.0);
+                        major[0] = phasers.create_follower(root_osc, 5.0 / 4.0);
+                        minor[1] = phasers.create_follower(root_osc, 6.0 / 4.0);
+                        minor[0] = phasers.create_follower(root_osc, 12.0 / 10.0);
+                        minor[1] = phasers.create_follower(root_osc, 15.0 / 10.0);
                 }
         } mid_phasers;
 
