@@ -241,10 +241,11 @@ void ShaderLoader::load_shader(std::string vs_path,
 
                                 return success;
                         });
-                } catch (std::exception& e) {
+                } catch (...) {
                         // pass any exception to display thread so it can be treated
-                        display_tasks.add_task([=] () -> bool {
-                                throw e;
+                        std::exception_ptr eptr = std::current_exception();
+                        display_tasks.add_task([eptr] () -> bool {
+                                std::rethrow_exception(eptr);
                         });
                 }
 
