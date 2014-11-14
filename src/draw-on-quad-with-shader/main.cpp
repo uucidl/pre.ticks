@@ -27,6 +27,11 @@
 #include "../common/buffer_types.h"
 #include "../common/fragops_types.h"
 
+std::string dirname(std::string path)
+{
+        return path.substr(0, path.find_last_of("/\\"));
+}
+
 extern void render_next_gl3(uint64_t time_micros)
 {
         static class DoOnce : public DisplayThreadTasks, public FileSystem
@@ -39,7 +44,7 @@ extern void render_next_gl3(uint64_t time_micros)
                 }
 
 
-                DoOnce() : base_path("./src/draw-on-quad-with-shader"), shader_loader(*this,
+                DoOnce() : base_path(dirname(__FILE__)), shader_loader(*this,
                                         *this)
                 {
                         shader_loader.load_shader("main.vs", "main.fs", [=](ShaderProgram&& input) {
