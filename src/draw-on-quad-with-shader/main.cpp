@@ -52,10 +52,10 @@ extern void render_next_gl3(uint64_t time_micros)
                                 position_attr = glGetAttribLocation(shader.ref(), "position");
                         });
                         float vertices[] = {
-                                0.0f, 0.0f,
-                                0.0f, 1.0f,
-                                1.0f, 1.0f,
-                                1.0f, 0.0f,
+                                -1.0f, -1.0f,
+                                -1.0f, +1.0f,
+                                +1.0f, +1.0f,
+                                +1.0f, -1.0f,
                         };
 
                         GLuint indices[] = {
