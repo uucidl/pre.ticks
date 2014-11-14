@@ -1,31 +1,18 @@
-#include <fstream>
-#include <future>
-#include <sstream>
-#include <string>
-#include <vector>
-
-#include <math.h>
-#include <stdio.h> // for printf
-
 #include <GL/glew.h>
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmissing-field-initializers"
-
-#include "stb_image.c"
-#include "stb_image_write.h"
-#include "stb_perlin.h"
-#include "stb_truetype.h"
-#include "ujdecode.h"
-
-#pragma clang diagnostic pop
-
 #include <micros/api.h>
 
 #include "../common/main_types.h"
 #include "../common/shader_types.h"
 #include "../common/buffer_types.h"
 #include "../common/fragops_types.h"
+
+#include <fstream>
+#include <future>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <math.h>
+#include <stdio.h> // for printf
 
 std::string dirname(std::string path)
 {
