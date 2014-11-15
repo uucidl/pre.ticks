@@ -122,6 +122,71 @@ extern void render_next_gl3(uint64_t time_micros)
                 glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
                 resources.shader.validate();
         }
+
+        static struct ShaderResources {
+                GLuint shaders[2]      = { 0, 0 };
+                GLuint shaderProgram   = 0;
+                GLuint quadBuffers[3]  = { 0, 0, 0, };
+                GLuint quadVertexArray = 0;
+        } all;
+
+        static bool mustInit = true;
+        if (mustInit) {
+                mustInit = false;
+                char const* vertexShaderLines[] = {
+                        "#version 150",
+                        "in vec4 position;",
+                        "void main()",
+                        "{",
+                        "gl_Position = position;",
+                        "}",
+                        NULL
+                };
+                char const* fragmentShaderLines[] = {
+                        "#version 150",
+                        "out vec4 color;",
+                        "void main()",
+                        "{",
+                        "    float g = gl_FragCoord.y/512.0 * (1.0f + 0.2 * sin(gl_FragCoord.x / 64.0));",
+                        "    color = vec4(1.0, 0.5 * g, 0.0, 0.90);",
+                        "}",
+                        NULL
+                };
+                struct ShaderDef {
+                        GLenum type;
+                        char const** lines;
+                } shaderDefs[2] = {
+                        { GL_VERTEX_SHADER, vertexShaderLines },
+                        { GL_FRAGMENT_SHADER, fragmentShaderLines },
+                };
+                auto countLines = [](char const* lineArray[]) {
+                        size_t count = 0;
+                        while (*lineArray++) {
+                                count++;
+                        }
+                        return count;
+                };
+                auto i = 0;
+                for (auto def : shaderDefs) {
+                        GLuint shader = glCreateShader(def.type);
+                        glShaderSource(shader, countLines(def.lines), def.lines, NULL);
+                        glCompileShader(shader);
+                        all.shaders[i++] = shader;
+                }
+
+                all.shaderProgram  = glCreateProgram();
+                glGenBuffers(3, all.quadBuffers);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, all.quadBuffers[0]);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+                glBindBuffer(GL_ARRAY_BUFFER, all.quadBuffers[1]);
+                glBindBuffer(GL_ARRAY_BUFFER, all.quadBuffers[2]);
+                glBindBuffer(GL_ARRAY_BUFFER, 0);
+                glGenVertexArrays(1, &all.quadVertexArray);
+                glBindVertexArray(all.quadVertexArray);
+                glBindVertexArray(0);
+        }
+
+
 }
 
 extern void render_next_2chn_48khz_audio(uint64_t time_micros,
