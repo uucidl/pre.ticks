@@ -93,7 +93,7 @@ extern void render_next_gl3(uint64_t time_micros)
                                         auto output = std::vector<char> {};
                                         output.reserve(length + 1);
                                         glGetShaderInfoLog(shader, length, &length, &output.front());
-                                        fprintf(stderr, "ERROR compiling shader: %s\n", &output.front());
+                                        fprintf(stderr, "ERROR compiling shader #%d: %s\n", 1+i, &output.front());
                                 }
                                 glAttachShader(all.shaderProgram, shader);
                                 all.shaders[i++] = shader;
