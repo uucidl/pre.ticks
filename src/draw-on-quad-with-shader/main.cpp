@@ -1,23 +1,10 @@
-#include <GL/glew.h>
 #include <micros/api.h>
 
-#include "../common/main_types.h"
-#include "../common/shader_types.h"
-#include "../common/buffer_types.h"
-#include "../common/fragops_types.h"
+#include <GL/glew.h>
 
-#include <fstream>
-#include <future>
-#include <sstream>
-#include <string>
 #include <vector>
 #include <math.h>
 #include <stdio.h> // for printf
-
-std::string dirname(std::string path)
-{
-        return path.substr(0, path.find_last_of("/\\"));
-}
 
 extern void render_next_gl3(uint64_t time_micros)
 {

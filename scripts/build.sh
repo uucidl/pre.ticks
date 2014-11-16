@@ -12,7 +12,7 @@ while [ "$#" -gt 0 ]; do
                 printf -- "top dir expected in '%s'\n" "${TOP}"
                 exit 1
             fi
-            
+
             shift
             shift
             ;;
@@ -25,4 +25,4 @@ done
 BUILD="${TOP}"/builds
 [ -d "${BUILD}" ] || mkdir -p "${BUILD}"
 
-"${TOP}"/modules/uu.micros/build --src-dir "${TOP}"/src/common --output-dir "${BUILD}" "$@"
+"${TOP}"/modules/uu.micros/build --output-dir "${BUILD}" "$@"
