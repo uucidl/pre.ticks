@@ -21,171 +21,144 @@ std::string dirname(std::string path)
 
 extern void render_next_gl3(uint64_t time_micros)
 {
-        static class DoOnce : public DisplayThreadTasks, public FileSystem
-        {
-        public:
-                void add_task(std::function<bool()>&& task)
-                {
-                        std::lock_guard<std::mutex> lock(tasks_mtx);
-                        tasks.emplace_back(task);
-                }
-
-
-                DoOnce() : base_path(dirname(__FILE__)), shader_loader(*this,
-                                        *this)
-                {
-                        shader_loader.load_shader("main.vs", "main.fs", [=](ShaderProgram&& input) {
-                                shader = std::move(input);
-                                position_attr = glGetAttribLocation(shader.ref(), "position");
-                        });
-                        float vertices[] = {
-                                -1.0f, -1.0f,
-                                -1.0f, +1.0f,
-                                +1.0f, +1.0f,
-                                +1.0f, -1.0f,
-                        };
-
-                        GLuint indices[] = {
-                                0, 1, 2, 2, 3, 0
-                        };
-
-                        {
-                                WithArrayBufferScope scope(vbo_vertices);
-                                glBufferData(GL_ARRAY_BUFFER, sizeof vertices, vertices, GL_STREAM_DRAW);
-                        }
-
-                        {
-                                WithElementArrayBufferScope scope(vbo_indices);
-                                glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof indices, indices,
-                                             GL_STREAM_DRAW);
-                        }
-
-                        printf("defining vertex array %d\n", vao_quad.ref);
-                        {
-                                WithVertexArrayScope vascope(vao_quad);
-
-                                glEnableVertexAttribArray(position_attr);
-
-                                glBindBuffer(GL_ARRAY_BUFFER, vbo_vertices.ref);
-                                glVertexAttribPointer(position_attr, 2, GL_FLOAT, GL_FALSE, 0, 0);
-
-                                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_indices.ref);
-                        }
-                }
-
-                std::ifstream open_file(std::string relpath) const
-                {
-                        auto stream = std::ifstream(base_path + "/" + relpath);
-
-                        if (stream.fail()) {
-                                throw std::runtime_error("could not load file at " + relpath);
-                        }
-
-                        return stream;
-                }
-
-                void run()
-                {
-                        std::lock_guard<std::mutex> lock(tasks_mtx);
-                        for (auto& task : tasks) {
-                                std::future<bool> future = task.get_future();
-                                task();
-                                future.get();
-                        }
-                        tasks.clear();
-                }
-
-                std::string base_path;
-                ShaderProgram shader;
-                Buffer vbo_vertices;
-                Buffer vbo_indices;
-                VertexArray vao_quad;
-                GLuint position_attr;
-
-                std::mutex tasks_mtx;
-                std::vector<std::packaged_task<bool()>> tasks;
-                ShaderLoader shader_loader;
-        } resources;
-
-        resources.run();
-
         float const argb[4] = {
                 0.0f, 0.39f, 0.19f, 0.29f,
         };
         glClearColor (argb[1], argb[2], argb[3], argb[0]);
         glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        {
-                WithVertexArrayScope vascope(resources.vao_quad);
-                WithBlendEnabledScope blend(GL_SRC_COLOR, GL_DST_COLOR);
-                WithShaderProgramScope with_shader(resources.shader);
-                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-                resources.shader.validate();
-        }
-
-        static struct ShaderResources {
-                GLuint shaders[2]      = { 0, 0 };
+        static struct Resources {
+                GLuint shaders[2]      = {};
                 GLuint shaderProgram   = 0;
-                GLuint quadBuffers[3]  = { 0, 0, 0, };
+                GLuint quadBuffers[2]  = {};
                 GLuint quadVertexArray = 0;
+                GLint indicesCount = 0;
         } all;
 
         static bool mustInit = true;
         if (mustInit) {
                 mustInit = false;
+
                 char const* vertexShaderLines[] = {
-                        "#version 150",
-                        "in vec4 position;",
-                        "void main()",
-                        "{",
-                        "gl_Position = position;",
-                        "}",
+                        "#version 150\n",
+                        "in vec4 position;\n",
+                        "void main()\n",
+                        "{\n",
+                        "gl_Position = position;\n",
+                        "}\n",
                         NULL
                 };
                 char const* fragmentShaderLines[] = {
-                        "#version 150",
-                        "out vec4 color;",
-                        "void main()",
-                        "{",
-                        "    float g = gl_FragCoord.y/512.0 * (1.0f + 0.2 * sin(gl_FragCoord.x / 64.0));",
-                        "    color = vec4(1.0, 0.5 * g, 0.0, 0.90);",
-                        "}",
+                        "#version 150\n",
+                        "out vec4 color;\n",
+                        "void main()\n",
+                        "{\n",
+                        "    float g = gl_FragCoord.y/64.0 * (1.0f + 0.2 * sin(gl_FragCoord.x / 64.0));\n",
+                        "    color = vec4(1.0, 0.5 * g, 0.0, 0.90);\n",
+                        "}\n",
                         NULL
                 };
-                struct ShaderDef {
-                        GLenum type;
-                        char const** lines;
-                } shaderDefs[2] = {
-                        { GL_VERTEX_SHADER, vertexShaderLines },
-                        { GL_FRAGMENT_SHADER, fragmentShaderLines },
-                };
-                auto countLines = [](char const* lineArray[]) {
-                        size_t count = 0;
-                        while (*lineArray++) {
+
+                auto countLines = [](char const* lineArray[]) -> GLint {
+                        auto count = 0;
+                        while (*lineArray++)
+                        {
                                 count++;
                         }
                         return count;
                 };
-                auto i = 0;
-                for (auto def : shaderDefs) {
-                        GLuint shader = glCreateShader(def.type);
-                        glShaderSource(shader, countLines(def.lines), def.lines, NULL);
-                        glCompileShader(shader);
-                        all.shaders[i++] = shader;
+
+                struct ShaderDef {
+                        GLenum type;
+                        char const** lines;
+                        GLint lineCount;
+                } shaderDefs[2] = {
+                        { GL_VERTEX_SHADER, vertexShaderLines, countLines(vertexShaderLines) },
+                        { GL_FRAGMENT_SHADER, fragmentShaderLines, countLines(fragmentShaderLines) },
+                };
+                {
+                        auto i = 0;
+                        all.shaderProgram  = glCreateProgram();
+
+                        for (auto def : shaderDefs) {
+                                GLuint shader = glCreateShader(def.type);
+                                glShaderSource(shader, def.lineCount, def.lines, NULL);
+                                glCompileShader(shader);
+                                GLint status;
+                                glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+                                if (status == GL_FALSE) {
+                                        GLint length;
+                                        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
+                                        auto output = std::vector<char> {};
+                                        output.reserve(length + 1);
+                                        glGetShaderInfoLog(shader, length, &length, &output.front());
+                                        fprintf(stderr, "ERROR compiling shader: %s\n", &output.front());
+                                }
+                                glAttachShader(all.shaderProgram, shader);
+                                all.shaders[i++] = shader;
+                        }
+                        glLinkProgram(all.shaderProgram);
                 }
 
-                all.shaderProgram  = glCreateProgram();
-                glGenBuffers(3, all.quadBuffers);
-                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, all.quadBuffers[0]);
-                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-                glBindBuffer(GL_ARRAY_BUFFER, all.quadBuffers[1]);
-                glBindBuffer(GL_ARRAY_BUFFER, all.quadBuffers[2]);
-                glBindBuffer(GL_ARRAY_BUFFER, 0);
+                GLuint quadIndices[] = {
+                        0, 1, 2, 2, 3, 0,
+                };
+                GLfloat quadVertices[] = {
+                        -1.0, -1.0,
+                        -1.0, +1.0,
+                        +1.0, +1.0,
+                        +1.0, -1.0,
+                };
+
+                struct BufferDef {
+                        GLenum target;
+                        GLenum usage;
+                        GLvoid const* data;
+                        GLsizeiptr size;
+                        GLint componentCount;
+                        GLint shaderAttrib;
+                } bufferDefs[] = {
+                        { GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW, quadIndices, sizeof quadIndices, 0, 0 },
+                        { GL_ARRAY_BUFFER, GL_STATIC_DRAW, quadVertices, sizeof quadVertices, 2, glGetAttribLocation(all.shaderProgram, "position") },
+                };
+
+                glGenBuffers(sizeof bufferDefs / sizeof bufferDefs[0],
+                             all.quadBuffers);
+                {
+                        auto i = 0;
+                        for (auto def : bufferDefs) {
+                                auto id = all.quadBuffers[i++];
+                                glBindBuffer(def.target, id);
+                                glBufferData(def.target, def.size, def.data, def.usage);
+                                glBindBuffer(def.target, 0);
+                        }
+                }
+
                 glGenVertexArrays(1, &all.quadVertexArray);
                 glBindVertexArray(all.quadVertexArray);
+                {
+                        auto i = 0;
+                        for (auto def : bufferDefs) {
+                                auto id = all.quadBuffers[i++];
+                                glBindBuffer(def.target, id);
+
+                                if (def.target != GL_ARRAY_BUFFER) {
+                                        continue;
+                                }
+                                glVertexAttribPointer(def.shaderAttrib, def.componentCount, GL_FLOAT,
+                                                      GL_FALSE, 0, 0);
+                                glEnableVertexAttribArray(def.shaderAttrib);
+                        }
+                }
                 glBindVertexArray(0);
+                all.indicesCount = sizeof quadIndices / sizeof quadIndices[0];
         }
 
+        glUseProgram(all.shaderProgram);
+        glBindVertexArray(all.quadVertexArray);
+        glDrawElements(GL_TRIANGLES, all.indicesCount, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+        glUseProgram(0);
 
 }
 
