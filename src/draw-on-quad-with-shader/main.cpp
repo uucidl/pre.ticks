@@ -40,12 +40,13 @@ extern void render_next_gl3(uint64_t time_micros)
                 char const* fragmentShaderLines[] = {
                         "#version 150\n",
                         "\n",
-                        "uniform vec3 iResolution; //viewport resolution in pixels\n",
+                        "uniform vec3 iResolution; // viewport resolution in pixels\n",
+                        "uniform float iGlobalTime; // shader playback time in seconds\n",
                         "out vec4 color;\n",
                         "void main()\n",
                         "{\n",
                         "    vec2 uv = gl_FragCoord.xy/iResolution.xy;\n",
-                        "    float g = uv.y * (1.0f + 0.2 * sin(8.0*3.141592*uv.x));\n",
+                        "    float g = uv.y * (1.0f + 0.2 * sin(8.0*3.141592*(iGlobalTime/4.0 + uv.x)));\n",
                         "    color = vec4(uv.x, g, uv.y, 1.00);\n",
                         "}\n",
                         NULL
@@ -168,6 +169,10 @@ extern void render_next_gl3(uint64_t time_micros)
                 };
                 glUniform3fv(glGetUniformLocation(all.shaderProgram, "iResolution"), 1,
                              resolution);
+
+                auto globalTimeInSeconds = static_cast<GLfloat> ((double) time_micros / 1e6);
+                glUniform1fv(glGetUniformLocation(all.shaderProgram, "iGlobalTime"), 1,
+                             &globalTimeInSeconds);
         }
         glBindVertexArray(all.quadVertexArray);
         glDrawElements(GL_TRIANGLES, all.indicesCount, GL_UNSIGNED_INT, 0);
