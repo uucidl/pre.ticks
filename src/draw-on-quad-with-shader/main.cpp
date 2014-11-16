@@ -8,12 +8,6 @@
 
 extern void render_next_gl3(uint64_t time_micros)
 {
-        float const argb[4] = {
-                0.0f, 0.39f, 0.19f, 0.29f,
-        };
-        glClearColor (argb[1], argb[2], argb[3], argb[0]);
-        glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
         static struct Resources {
                 GLuint shaders[2]      = {};
                 GLuint shaderProgram   = 0;
@@ -22,9 +16,17 @@ extern void render_next_gl3(uint64_t time_micros)
                 GLint indicesCount = 0;
         } all;
 
+        // this incoming section initializes the static resources
+        // necessary for drawing. It is executed only once!
+        //
+        // read the drawing code (after it) before checking the
+        // initialization code.
+
         static bool mustInit = true;
         if (mustInit) {
                 mustInit = false;
+
+                // DATA
 
                 char const* vertexShaderLines[] = {
                         "#version 150\n",
@@ -45,6 +47,18 @@ extern void render_next_gl3(uint64_t time_micros)
                         "}\n",
                         NULL
                 };
+
+                GLuint quadIndices[] = {
+                        0, 1, 2, 2, 3, 0,
+                };
+                GLfloat quadVertices[] = {
+                        -1.0, -1.0,
+                        -1.0, +1.0,
+                        +1.0, +1.0,
+                        +1.0, -1.0,
+                };
+
+                // DATA -> OpenGL
 
                 auto countLines = [](char const* lineArray[]) -> GLint {
                         auto count = 0;
@@ -86,16 +100,6 @@ extern void render_next_gl3(uint64_t time_micros)
                         }
                         glLinkProgram(all.shaderProgram);
                 }
-
-                GLuint quadIndices[] = {
-                        0, 1, 2, 2, 3, 0,
-                };
-                GLfloat quadVertices[] = {
-                        -1.0, -1.0,
-                        -1.0, +1.0,
-                        +1.0, +1.0,
-                        +1.0, -1.0,
-                };
 
                 struct BufferDef {
                         GLenum target;
@@ -140,6 +144,14 @@ extern void render_next_gl3(uint64_t time_micros)
                 glBindVertexArray(0);
                 all.indicesCount = sizeof quadIndices / sizeof quadIndices[0];
         }
+
+        // Drawing code
+
+        float const argb[4] = {
+                0.0f, 0.39f, 0.19f, 0.29f,
+        };
+        glClearColor (argb[1], argb[2], argb[3], argb[0]);
+        glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glUseProgram(all.shaderProgram);
         glBindVertexArray(all.quadVertexArray);
