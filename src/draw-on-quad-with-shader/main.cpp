@@ -182,9 +182,9 @@ extern void render_next_gl3(uint64_t time_micros)
                                 if (def.target != GL_ARRAY_BUFFER) {
                                         continue;
                                 }
+                                glEnableVertexAttribArray(def.shaderAttrib);
                                 glVertexAttribPointer(def.shaderAttrib, def.componentCount, GL_FLOAT,
                                                       GL_FALSE, 0, 0);
-                                glEnableVertexAttribArray(def.shaderAttrib);
                         }
                 }
                 glBindVertexArray(0);
