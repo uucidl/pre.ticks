@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+static std::string gbl_PROG;
+
 extern void render_next_gl3(uint64_t time_micros)
 {
         static struct Resources {
@@ -28,11 +30,41 @@ extern void render_next_gl3(uint64_t time_micros)
                 mustInit = false;
 
                 // DATA
-                auto dirname = [](std::string filepath) {
-                        return filepath.substr(0, filepath.find_last_of("/\\"));
+
+                const char* fragmentShaderPath = "shader.fs";
+
+                // we will load content of datafiles either next to executable
+                // or at its original source location, whichever contains a file.
+                //
+                // this allows changing the source file easily without extra copying
+                //
+                const char* dataFileSources[] = {
+                        __FILE__, gbl_PROG.c_str(),
                 };
-                auto base_path = dirname(__FILE__);
-                auto file_content = [base_path](std::string relpath) {
+
+                char const* vertexShaderStrings[] = {
+                        "#version 150\n",
+                        "in vec4 position;\n",
+                        "void main()\n",
+                        "{\n",
+                        "    gl_Position = position;\n",
+                        "}\n",
+                        nullptr,
+                };
+
+                GLuint quadIndices[] = {
+                        0, 1, 2, 2, 3, 0,
+                };
+                GLfloat quadVertices[] = {
+                        -1.0, -1.0,
+                        -1.0, +1.0,
+                        +1.0, +1.0,
+                        +1.0, -1.0,
+                };
+
+                // DATA -> OpenGL
+
+                auto file_content = [](std::string base_path, std::string relpath) {
                         auto file = std::fopen((base_path + "/" + relpath).c_str(), "rb");
                         if (!file) {
                                 throw std::runtime_error("could not load file at " + relpath);
@@ -53,33 +85,26 @@ extern void render_next_gl3(uint64_t time_micros)
                         return content;
                 };
 
-                char const* vertexShaderStrings[] = {
-                        "#version 150\n",
-                        "in vec4 position;\n",
-                        "void main()\n",
-                        "{\n",
-                        "    gl_Position = position;\n",
-                        "}\n",
-                        nullptr,
+                auto datafile_content = [dataFileSources,file_content](std::string relpath) {
+                        auto dirname = [](std::string filepath) {
+                                return filepath.substr(0, filepath.find_last_of("/\\"));
+                        };
+
+                        for (auto base : dataFileSources) {
+                                try {
+                                        return file_content(dirname(base), relpath);
+                                } catch (...) {
+                                        continue;
+                                }
+                        }
+                        return std::string("");
                 };
 
-                std::string fragmentShaderContent = file_content("shader.fs");
+                std::string fragmentShaderContent = datafile_content(fragmentShaderPath);
                 char const* fragmentShaderStrings[] = {
                         fragmentShaderContent.c_str(),
                         nullptr,
                 };
-
-                GLuint quadIndices[] = {
-                        0, 1, 2, 2, 3, 0,
-                };
-                GLfloat quadVertices[] = {
-                        -1.0, -1.0,
-                        -1.0, +1.0,
-                        +1.0, +1.0,
-                        +1.0, -1.0,
-                };
-
-                // DATA -> OpenGL
 
                 auto countStrings = [](char const* lineArray[]) -> GLint {
                         auto count = 0;
@@ -208,7 +233,7 @@ extern void render_next_2chn_48khz_audio(uint64_t time_micros,
 int main (int argc, char** argv)
 {
         (void) argc;
-        (void) argv;
+        gbl_PROG = argv[0];
 
         runtime_init();
 
