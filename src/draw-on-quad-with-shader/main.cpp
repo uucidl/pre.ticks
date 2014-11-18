@@ -6,6 +6,10 @@
 #include <math.h>
 #include <stdio.h> // for printf
 
+#include <fstream>
+#include <sstream>
+#include <string>
+
 extern void render_next_gl3(uint64_t time_micros)
 {
         static struct Resources {
@@ -27,29 +31,38 @@ extern void render_next_gl3(uint64_t time_micros)
                 mustInit = false;
 
                 // DATA
+                auto dirname = [](std::string filepath) {
+                        return filepath.substr(0, filepath.find_last_of("/\\"));
+                };
+                auto base_path = dirname(__FILE__);
+                auto file_content = [base_path](std::string relpath) {
+                        auto stream = std::ifstream(base_path + "/" + relpath);
 
-                char const* vertexShaderLines[] = {
+                        if (stream.fail()) {
+                                throw std::runtime_error("could not load file at " + relpath);
+                        }
+
+                        std::string content {
+                                std::istreambuf_iterator<char>(stream),
+                                std::istreambuf_iterator<char>()
+                        };
+                        return content;
+                };
+
+                char const* vertexShaderStrings[] = {
                         "#version 150\n",
                         "in vec4 position;\n",
                         "void main()\n",
                         "{\n",
-                        "gl_Position = position;\n",
+                        "    gl_Position = position;\n",
                         "}\n",
-                        NULL
+                        nullptr,
                 };
-                char const* fragmentShaderLines[] = {
-                        "#version 150\n",
-                        "\n",
-                        "uniform vec3 iResolution; // viewport resolution in pixels\n",
-                        "uniform float iGlobalTime; // shader playback time in seconds\n",
-                        "out vec4 color;\n",
-                        "void main()\n",
-                        "{\n",
-                        "    vec2 uv = gl_FragCoord.xy/iResolution.xy;\n",
-                        "    float g = uv.y * (1.0f + 0.2 * sin(8.0*3.141592*(iGlobalTime/4.0 + uv.x)));\n",
-                        "    color = vec4(uv.x, g, uv.y, 1.00);\n",
-                        "}\n",
-                        NULL
+
+                std::string fragmentShaderContent = file_content("shader.fs");
+                char const* fragmentShaderStrings[] = {
+                        fragmentShaderContent.c_str(),
+                        nullptr,
                 };
 
                 GLuint quadIndices[] = {
@@ -64,7 +77,7 @@ extern void render_next_gl3(uint64_t time_micros)
 
                 // DATA -> OpenGL
 
-                auto countLines = [](char const* lineArray[]) -> GLint {
+                auto countStrings = [](char const* lineArray[]) -> GLint {
                         auto count = 0;
                         while (*lineArray++)
                         {
@@ -78,8 +91,8 @@ extern void render_next_gl3(uint64_t time_micros)
                         char const** lines;
                         GLint lineCount;
                 } shaderDefs[2] = {
-                        { GL_VERTEX_SHADER, vertexShaderLines, countLines(vertexShaderLines) },
-                        { GL_FRAGMENT_SHADER, fragmentShaderLines, countLines(fragmentShaderLines) },
+                        { GL_VERTEX_SHADER, vertexShaderStrings, countStrings(vertexShaderStrings) },
+                        { GL_FRAGMENT_SHADER, fragmentShaderStrings, countStrings(fragmentShaderStrings) },
                 };
                 {
                         auto i = 0;
