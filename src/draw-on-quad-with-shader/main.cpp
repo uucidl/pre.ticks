@@ -2,13 +2,10 @@
 
 #include <GL/glew.h>
 
-#include <vector>
+#include <cstdio> // for printf, read/seek etc..
 #include <math.h>
-#include <stdio.h> // for printf
-
-#include <fstream>
-#include <sstream>
 #include <string>
+#include <vector>
 
 extern void render_next_gl3(uint64_t time_micros)
 {
@@ -36,16 +33,23 @@ extern void render_next_gl3(uint64_t time_micros)
                 };
                 auto base_path = dirname(__FILE__);
                 auto file_content = [base_path](std::string relpath) {
-                        auto stream = std::ifstream(base_path + "/" + relpath);
-
-                        if (stream.fail()) {
+                        auto file = std::fopen((base_path + "/" + relpath).c_str(), "rb");
+                        if (!file) {
                                 throw std::runtime_error("could not load file at " + relpath);
                         }
 
-                        std::string content {
-                                std::istreambuf_iterator<char>(stream),
-                                std::istreambuf_iterator<char>()
-                        };
+                        std::string content;
+                        std::fseek(file, 0, SEEK_END);
+                        content.reserve(std::ftell(file));
+                        std::fseek(file, 0, SEEK_SET);
+
+                        char buffer[64 * 1024];
+                        long n;
+                        while (n = std::fread(buffer, 1, sizeof buffer, file), n != 0) {
+                                content.append(buffer, n);
+                        }
+                        std::fclose(file);
+
                         return content;
                 };
 
