@@ -9,7 +9,7 @@
 
 static std::string gbl_PROG;
 
-extern void render_next_gl3(uint64_t time_micros)
+static void draw_shader_on_quad(uint64_t time_micros)
 {
         static struct Resources {
                 GLuint shaders[2]      = {};
@@ -64,7 +64,8 @@ extern void render_next_gl3(uint64_t time_micros)
 
                 // DATA -> OpenGL
 
-                auto file_content = [](std::string base_path, std::string relpath) {
+                auto file_content = [](std::string const& base_path,
+                std::string const& relpath) {
                         auto file = std::fopen((base_path + "/" + relpath).c_str(), "rb");
                         if (!file) {
                                 throw std::runtime_error("could not load file at " + relpath);
@@ -85,7 +86,8 @@ extern void render_next_gl3(uint64_t time_micros)
                         return content;
                 };
 
-                auto datafile_content = [dataFileSources,file_content](std::string relpath) {
+                auto datafile_content = [dataFileSources,
+                file_content](std::string const& relpath) {
                         auto dirname = [](std::string filepath) {
                                 return filepath.substr(0, filepath.find_last_of("/\\"));
                         };
@@ -221,6 +223,11 @@ extern void render_next_gl3(uint64_t time_micros)
         glBindVertexArray(0);
         glUseProgram(0);
 
+}
+
+extern void render_next_gl3(uint64_t time_micros)
+{
+        draw_shader_on_quad(time_micros);
 }
 
 extern void render_next_2chn_48khz_audio(uint64_t time_micros,
