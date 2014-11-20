@@ -3,7 +3,6 @@
 #include <GL/glew.h>
 
 #include <cstdio> // for printf, read/seek etc..
-#include <math.h>
 #include <string>
 #include <vector>
 
@@ -222,7 +221,6 @@ static void draw_shader_on_quad(uint64_t time_micros)
         glDrawElements(GL_TRIANGLES, all.indicesCount, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
         glUseProgram(0);
-
 }
 
 extern void render_next_gl3(uint64_t time_micros)
