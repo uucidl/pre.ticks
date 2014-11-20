@@ -38,7 +38,7 @@ static void draw_shader_on_quad(uint64_t time_micros)
                 // this allows changing the source file easily without extra copying
                 //
                 const char* dataFileSources[] = {
-                        __FILE__, gbl_PROG.c_str(),
+                        gbl_PROG.c_str(), __FILE__,
                 };
 
                 char const* vertexShaderStrings[] = {
