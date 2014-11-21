@@ -146,6 +146,8 @@ static void draw_image_on_screen(uint64_t time_micros)
                                 glBindTexture(target, all.textures[i]);
                                 glTexParameteri(target, GL_TEXTURE_BASE_LEVEL, 0);
                                 glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, 0);
+                                glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                                glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
                                 glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
                                 glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
                                 glTexImage2D(target, 0, GL_RGBA, image.width, image.height, 0, GL_RGBA,
