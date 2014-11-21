@@ -94,17 +94,12 @@ static void draw_image_on_screen(uint64_t time_micros)
                 // DATA -> OpenGL
 
                 struct RGBAImage {
-                        std::unique_ptr<unsigned char,void (*)(void*)> data;
+                        unsigned char* data;
                         int width;
                         int height;
                 };
 
-                auto stbi_data = [](unsigned char* data) {
-                        return std::unique_ptr<unsigned char,void(*)(void*)> (data,
-                                        stbi_image_free);
-                };
-
-                auto image_content = [stbi_data](std::string const& base_path,
+                auto image_content = [](std::string const& base_path,
                 std::string const& relpath) {
                         int x, y, n = 4;
                         auto data = stbi_load((base_path + "/" + relpath).c_str(), &x, &y, &n, 4);
@@ -113,14 +108,14 @@ static void draw_image_on_screen(uint64_t time_micros)
                         }
 
                         return RGBAImage {
-                                stbi_data(data),
+                                data,
                                 x,
                                 y,
                         };
                 };
 
-                auto dataimage_content = [dataFileSources,
-                image_content,stbi_data](std::string const& relpath) {
+                auto dataimage_content = [&dataFileSources,
+                image_content](std::string const& relpath) {
                         auto dirname = [](std::string filepath) {
                                 return filepath.substr(0, filepath.find_last_of("/\\"));
                         };
@@ -132,29 +127,35 @@ static void draw_image_on_screen(uint64_t time_micros)
                                         continue;
                                 }
                         }
-                        return RGBAImage { stbi_data(nullptr), 0, 0 };
+                        return std::move(RGBAImage { nullptr, 0, 0 });
                 };
 
-                struct Texture2DDef {
-                        RGBAImage image;
-                } textureDefs[] = {
-                        { dataimage_content(imageFile) }
-                };
+                {
+                        struct Texture2DDef {
+                                RGBAImage image;
+                        } textureDefs[] = {
+                                { dataimage_content(imageFile) }
+                        };
 
-                glGenTextures(sizeof textureDefs / sizeof textureDefs[0], all.textures);
-                for (auto const& def : textureDefs) {
-                        auto i = &def - textureDefs;
-                        auto target = GL_TEXTURE_2D;
-                        auto const& image = def.image;
+                        glGenTextures(sizeof textureDefs / sizeof textureDefs[0], all.textures);
+                        for (auto const& def : textureDefs) {
+                                auto i = &def - textureDefs;
+                                auto target = GL_TEXTURE_2D;
+                                auto const& image = def.image;
 
-                        glBindTexture(target, all.textures[i]);
-                        glTexParameteri(target, GL_TEXTURE_BASE_LEVEL, 0);
-                        glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, 0);
-                        glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-                        glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-                        glTexImage2D(target, 0, GL_RGBA, image.width, image.height, 0, GL_RGBA,
-                                     GL_UNSIGNED_BYTE, image.data.get());
-                        glBindTexture(GL_TEXTURE_2D, 0);
+                                glBindTexture(target, all.textures[i]);
+                                glTexParameteri(target, GL_TEXTURE_BASE_LEVEL, 0);
+                                glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, 0);
+                                glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+                                glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+                                glTexImage2D(target, 0, GL_RGBA, image.width, image.height, 0, GL_RGBA,
+                                             GL_UNSIGNED_BYTE, image.data);
+                                glBindTexture(GL_TEXTURE_2D, 0);
+                        }
+                        for (auto& def : textureDefs) {
+                                stbi_image_free(def.image.data);
+                                def.image.data = nullptr;
+                        }
                 }
 
                 auto countStrings = [](char const* lineArray[]) -> GLint {
