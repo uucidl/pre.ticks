@@ -1,21 +1,29 @@
+#include "compile.hpp"
+
 #include <micros/api.h>
 
 #include <GL/glew.h>
 
-#include <cstdio> // for printf, read/seek etc..
+#define STBI_HEADER_FILE_ONLY
+#include <stb_image.c>
+#undef STBI_HEADER_FILE_ONLY
+
 #include <string>
 #include <vector>
 
 static std::string gbl_PROG;
 
-static void draw_shader_on_quad(uint64_t time_micros)
+#include <memory>
+
+static void draw_image_on_screen(uint64_t time_micros)
 {
         static struct Resources {
                 GLuint shaders[2]      = {};
                 GLuint shaderProgram   = 0;
+                GLuint textures[1]     = {};
                 GLuint quadBuffers[2]  = {};
                 GLuint quadVertexArray = 0;
-                GLint indicesCount = 0;
+                GLint indicesCount     = 0;
         } all;
 
         // this incoming section initializes the static resources
@@ -30,16 +38,16 @@ static void draw_shader_on_quad(uint64_t time_micros)
 
                 // DATA
 
-                const char* fragmentShaderPath = "shader.fs";
-
                 // we will load content of datafiles either next to executable
                 // or at its original source location, whichever contains a file.
                 //
                 // this allows changing the source file easily without extra copying
                 //
-                const char* dataFileSources[] = {
+                char const* dataFileSources[] = {
                         gbl_PROG.c_str(), __FILE__,
                 };
+
+                char const* imageFile = "photo.jpg";
 
                 char const* vertexShaderStrings[] = {
                         "#version 150\n",
@@ -47,6 +55,28 @@ static void draw_shader_on_quad(uint64_t time_micros)
                         "void main()\n",
                         "{\n",
                         "    gl_Position = position;\n",
+                        "}\n",
+                        nullptr,
+                };
+
+                char const* fragmentShaderStrings[] = {
+                        "#version 150\n",
+                        "uniform vec3 iResolution; // viewport resolution in pixels\n",
+                        "uniform float iGlobalTime; // shader playback time in seconds\n",
+                        "uniform sampler2D iChannel0; // first texture\n",
+                        "out vec4 oColor;\n",
+                        "void main()\n",
+                        "{\n",
+                        "    vec2 photoResolution = textureSize(iChannel0, 0);\n",
+                        "    // scale photo and position it to be at the center\n",
+                        "    vec2 scales = vec2(iResolution.x/photoResolution.x,iResolution.y/photoResolution.y);\n",
+                        "    photoResolution = min(scales.x, scales.y) * photoResolution;\n",
+                        "    vec2 translation;\n",
+                        "    translation.y = max(0,(iResolution.y - photoResolution.y)/2.0);\n",
+                        "    translation.x = max(0,(iResolution.x - photoResolution.x)/2.0);\n",
+                        "    vec2 uv = (gl_FragCoord.xy + vec2(0.5, 0.5) - translation) / photoResolution.xy;\n",
+                        "    vec2 photouv = vec2(uv.x, 1.0-uv.y);\n",
+                        "    oColor = texture(iChannel0, photouv);\n",
                         "}\n",
                         nullptr,
                 };
@@ -63,49 +93,72 @@ static void draw_shader_on_quad(uint64_t time_micros)
 
                 // DATA -> OpenGL
 
-                auto file_content = [](std::string const& base_path,
+                struct RGBAImage {
+                        unsigned char* data;
+                        int width;
+                        int height;
+                };
+
+                auto image_content = [](std::string const& base_path,
                 std::string const& relpath) {
-                        auto file = std::fopen((base_path + "/" + relpath).c_str(), "rb");
-                        if (!file) {
+                        int x, y, n = 4;
+                        auto data = stbi_load((base_path + "/" + relpath).c_str(), &x, &y, &n, 4);
+                        if (!data) {
                                 throw std::runtime_error("could not load file at " + relpath);
                         }
 
-                        std::string content;
-                        std::fseek(file, 0, SEEK_END);
-                        content.reserve(std::ftell(file));
-                        std::fseek(file, 0, SEEK_SET);
-
-                        char buffer[64 * 1024];
-                        long n;
-                        while (n = std::fread(buffer, 1, sizeof buffer, file), n != 0) {
-                                content.append(buffer, n);
-                        }
-                        std::fclose(file);
-
-                        return content;
+                        return RGBAImage {
+                                data,
+                                x,
+                                y,
+                        };
                 };
 
-                auto datafile_content = [dataFileSources,
-                file_content](std::string const& relpath) {
+                auto dataimage_content = [&dataFileSources,
+                image_content](std::string const& relpath) {
                         auto dirname = [](std::string filepath) {
                                 return filepath.substr(0, filepath.find_last_of("/\\"));
                         };
 
                         for (auto base : dataFileSources) {
                                 try {
-                                        return file_content(dirname(base), relpath);
+                                        return image_content(dirname(base), relpath);
                                 } catch (...) {
                                         continue;
                                 }
                         }
-                        return std::string("");
+                        return std::move(RGBAImage { nullptr, 0, 0 });
                 };
 
-                std::string fragmentShaderContent = datafile_content(fragmentShaderPath);
-                char const* fragmentShaderStrings[] = {
-                        fragmentShaderContent.c_str(),
-                        nullptr,
-                };
+                {
+                        struct Texture2DDef {
+                                RGBAImage image;
+                        } textureDefs[] = {
+                                { dataimage_content(imageFile) }
+                        };
+
+                        glGenTextures(sizeof textureDefs / sizeof textureDefs[0], all.textures);
+                        for (auto const& def : textureDefs) {
+                                auto i = &def - textureDefs;
+                                auto target = GL_TEXTURE_2D;
+                                auto const& image = def.image;
+
+                                glBindTexture(target, all.textures[i]);
+                                glTexParameteri(target, GL_TEXTURE_BASE_LEVEL, 0);
+                                glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, 0);
+                                glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                                glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                                glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+                                glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+                                glTexImage2D(target, 0, GL_RGBA, image.width, image.height, 0, GL_RGBA,
+                                             GL_UNSIGNED_BYTE, image.data);
+                                glBindTexture(GL_TEXTURE_2D, 0);
+                        }
+                        for (auto& def : textureDefs) {
+                                stbi_image_free(def.image.data);
+                                def.image.data = nullptr;
+                        }
+                }
 
                 auto countStrings = [](char const* lineArray[]) -> GLint {
                         auto count = 0;
@@ -217,15 +270,36 @@ static void draw_shader_on_quad(uint64_t time_micros)
                 glUniform1fv(glGetUniformLocation(all.shaderProgram, "iGlobalTime"), 1,
                              &globalTimeInSeconds);
         }
+
+        char const* channels[] = {
+                "iChannel0",
+        };
+        for (auto const& texture : all.textures) {
+                auto i = &texture - all.textures;
+                glActiveTexture(GL_TEXTURE0 + i);
+                auto target = GL_TEXTURE_2D;
+                glBindTexture(target, texture);
+                glUniform1i(glGetUniformLocation(all.shaderProgram, channels[i]), i);
+        }
         glBindVertexArray(all.quadVertexArray);
         glDrawElements(GL_TRIANGLES, all.indicesCount, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
+        for (auto const& texture : all.textures) {
+                auto i = &texture - all.textures;
+                glActiveTexture(GL_TEXTURE0 + i);
+                glBindTexture(GL_TEXTURE_2D, 0);
+        }
+        glActiveTexture(GL_TEXTURE0);
         glUseProgram(0);
 }
 
+BEGIN_NOWARN_BLOCK
+#include <stb_image.c>
+END_NOWARN_BLOCK
+
 extern void render_next_gl3(uint64_t time_micros)
 {
-        draw_shader_on_quad(time_micros);
+        draw_image_on_screen(time_micros);
 }
 
 extern void render_next_2chn_48khz_audio(uint64_t time_micros,
