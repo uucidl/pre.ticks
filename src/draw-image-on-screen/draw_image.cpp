@@ -8,6 +8,7 @@
 #include <stb_image.c>
 #undef STBI_HEADER_FILE_ONLY
 
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -307,7 +308,9 @@ static void draw_image_on_screen(uint64_t time_micros)
                 glUniform3fv(glGetUniformLocation(all.shaderProgram, "iResolution"), 1,
                              resolution);
 
-                auto globalTimeInSeconds = static_cast<GLfloat> ((double) time_micros / 1e6);
+                auto globalTimeInSeconds = static_cast<GLfloat> (fmod(time_micros / 1e6,
+                                           3600.0));
+
                 glUniform1fv(glGetUniformLocation(all.shaderProgram, "iGlobalTime"), 1,
                              &globalTimeInSeconds);
         }
