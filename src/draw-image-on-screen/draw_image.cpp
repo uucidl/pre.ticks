@@ -13,6 +13,7 @@
 #include <vector>
 
 static std::string gbl_PROG;
+static std::string gbl_PHOTO_JPG = "photo.jpg";
 
 #define FROM_FILE
 
@@ -52,10 +53,10 @@ static void draw_image_on_screen(uint64_t time_micros)
                 // this allows changing the source file easily without extra copying
                 //
                 char const* dataFileSources[] = {
-                        gbl_PROG.c_str(), __FILE__,
+                        nullptr, gbl_PROG.c_str(), __FILE__,
                 };
 
-                char const* imageFile = "photo.jpg";
+                char const* imageFile = gbl_PHOTO_JPG.c_str();
 
                 char const* vertexShaderStrings[] = {
                         "#version 150\n",
@@ -139,12 +140,11 @@ static void draw_image_on_screen(uint64_t time_micros)
                         int height;
                 };
 
-                auto image_content = [](std::string const& base_path,
-                std::string const& relpath) {
+                auto image_content = [](std::string const& path) {
                         int x, y, n = 4;
-                        auto data = stbi_load((base_path + "/" + relpath).c_str(), &x, &y, &n, 4);
+                        auto data = stbi_load(path.c_str(), &x, &y, &n, 4);
                         if (!data) {
-                                throw std::runtime_error("could not load file at " + relpath);
+                                throw std::runtime_error("could not load file at " + path);
                         }
 
                         return RGBAImage {
@@ -162,7 +162,10 @@ static void draw_image_on_screen(uint64_t time_micros)
 
                         for (auto base : dataFileSources) {
                                 try {
-                                        return image_content(dirname(base), relpath);
+                                        auto prefix = base ? (dirname(base) + "/") : "";
+                                        auto path = prefix + relpath;
+
+                                        return image_content(path);
                                 } catch (...) {
                                         continue;
                                 }
@@ -355,8 +358,10 @@ extern void render_next_2chn_48khz_audio(uint64_t time_micros,
 
 int main (int argc, char** argv)
 {
-        (void) argc;
         gbl_PROG = argv[0];
+        if (argc > 1) {
+                gbl_PHOTO_JPG = argv[1];
+        }
 
         runtime_init();
 
