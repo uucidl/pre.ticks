@@ -73,21 +73,28 @@ static void draw_image_on_screen(uint64_t time_micros)
                         };
 
                         for (auto base : dataFileSources) {
-                                unique_cstr string = slurp((dirname(base) + "/" + relpath).c_str());
+                                auto prefix = base ? (dirname(base) + "/") : "";
+                                auto path = prefix + relpath;
+                                unique_cstr string = slurp(path.c_str());
                                 if (!string.get()) {
                                         continue;
                                 }
-                                return std::move(string);
+
+                                auto sourceBytes = path.size() + 1;
+                                auto source = unique_cstr { (char*)std::calloc(1, sourceBytes), std::free };
+                                memcpy(source.get(), path.c_str(), sourceBytes);
+                                return std::make_pair(std::move(string), std::move(source));
                         }
-                        return unique_cstr { nullptr, std::free };
+                        return std::make_pair(unique_cstr { nullptr, std::free }, unique_cstr { nullptr, std::free });
                 };
 
                 auto fsData = slurpDatafile("shader.fs");
 
                 char const* fragmentShaderStrings[] = {
-                        fsData.get(),
+                        fsData.first.get(),
                         nullptr
                 };
+                char const* fragmentShaderSource = fsData.second.get();
 #else
                 char const* fragmentShaderStrings[] = {
                         "#version 150\n",
@@ -110,6 +117,7 @@ static void draw_image_on_screen(uint64_t time_micros)
                         "}\n",
                         nullptr,
                 };
+                char const* fragmentShaderSource = "<main>";
 #endif
 
                 GLuint quadIndices[] = {
@@ -204,9 +212,10 @@ static void draw_image_on_screen(uint64_t time_micros)
                         GLenum type;
                         char const** lines;
                         GLint lineCount;
+                        char const* source;
                 } shaderDefs[2] = {
-                        { GL_VERTEX_SHADER, vertexShaderStrings, countStrings(vertexShaderStrings) },
-                        { GL_FRAGMENT_SHADER, fragmentShaderStrings, countStrings(fragmentShaderStrings) },
+                        { GL_VERTEX_SHADER, vertexShaderStrings, countStrings(vertexShaderStrings), "<main>" },
+                        { GL_FRAGMENT_SHADER, fragmentShaderStrings, countStrings(fragmentShaderStrings), fragmentShaderSource },
                 };
                 {
                         auto i = 0;
@@ -224,7 +233,8 @@ static void draw_image_on_screen(uint64_t time_micros)
                                         auto output = std::vector<char> {};
                                         output.reserve(length + 1);
                                         glGetShaderInfoLog(shader, length, &length, &output.front());
-                                        fprintf(stderr, "ERROR compiling shader #%d: %s\n", 1+i, &output.front());
+                                        fprintf(stderr, "error:%s:0:%s while compiling shader #%d\n", def.source,
+                                                &output.front(), 1+i);
                                 }
                                 glAttachShader(all.shaderProgram, shader);
                                 all.shaders[i++] = shader;
