@@ -12,17 +12,12 @@
 #include <string>
 #include <vector>
 
-static std::string gbl_PROG;
-static std::string gbl_PHOTO_JPG = "photo.jpg";
-
-#define FROM_FILE
-
-#if defined(FROM_FILE)
 #include "../common.hpp"
 #include <cstdlib>
-#endif
-
 #include <memory>
+
+static char const *gbl_PROG;
+static char const *gbl_PHOTO_JPG = "photo.jpg";
 
 static void draw_image_on_screen(uint64_t time_micros)
 {
@@ -53,10 +48,10 @@ static void draw_image_on_screen(uint64_t time_micros)
                 // this allows changing the source file easily without extra copying
                 //
                 char const* dataFileSources[] = {
-                        nullptr, gbl_PROG.c_str(), __FILE__,
+                        nullptr, gbl_PROG, __FILE__,
                 };
 
-                char const* imageFile = gbl_PHOTO_JPG.c_str();
+                char const* imageFile = gbl_PHOTO_JPG;
 
                 char const* vertexShaderStrings[] = {
                         "#version 150\n",
@@ -68,7 +63,6 @@ static void draw_image_on_screen(uint64_t time_micros)
                         nullptr,
                 };
 
-#if defined(FROM_FILE)
                 auto slurpDatafile = [&dataFileSources](std::string relpath) {
                         auto dirname = [](std::string filepath) {
                                 return filepath.substr(0, filepath.find_last_of("/\\"));
@@ -97,30 +91,6 @@ static void draw_image_on_screen(uint64_t time_micros)
                         nullptr
                 };
                 char const* fragmentShaderSource = fsData.second.get();
-#else
-                char const* fragmentShaderStrings[] = {
-                        "#version 150\n",
-                        "uniform vec3 iResolution; // viewport resolution in pixels\n",
-                        "uniform float iGlobalTime; // shader playback time in seconds\n",
-                        "uniform sampler2D iChannel0; // first texture\n",
-                        "out vec4 oColor;\n",
-                        "void main()\n",
-                        "{\n",
-                        "    vec2 photoResolution = textureSize(iChannel0, 0);\n",
-                        "    // scale photo and position it to be at the center\n",
-                        "    vec2 scales = vec2(iResolution.x/photoResolution.x,iResolution.y/photoResolution.y);\n",
-                        "    photoResolution = min(scales.x, scales.y) * photoResolution;\n",
-                        "    vec2 translation;\n",
-                        "    translation.y = max(0,(iResolution.y - photoResolution.y)/2.0);\n",
-                        "    translation.x = max(0,(iResolution.x - photoResolution.x)/2.0);\n",
-                        "    vec2 uv = (gl_FragCoord.xy + vec2(0.5, 0.5) - translation) / photoResolution.xy;\n",
-                        "    vec2 photouv = vec2(uv.x, 1.0-uv.y);\n",
-                        "    oColor = texture(iChannel0, photouv);\n",
-                        "}\n",
-                        nullptr,
-                };
-                char const* fragmentShaderSource = "<main>";
-#endif
 
                 GLuint quadIndices[] = {
                         0, 1, 2, 2, 3, 0,
@@ -340,10 +310,6 @@ static void draw_image_on_screen(uint64_t time_micros)
         glUseProgram(0);
 }
 
-BEGIN_NOWARN_BLOCK
-#include <stb_image.c>
-END_NOWARN_BLOCK
-
 extern void render_next_gl3(uint64_t time_micros)
 {
         draw_image_on_screen(time_micros);
@@ -367,3 +333,9 @@ int main (int argc, char** argv)
 
         return 0;
 }
+
+// LIBRARY CODE
+
+BEGIN_NOWARN_BLOCK
+#include <stb_image.c>
+END_NOWARN_BLOCK
