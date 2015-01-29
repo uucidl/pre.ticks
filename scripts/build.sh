@@ -25,4 +25,4 @@ done
 BUILD="${TOP}"/builds
 [ -d "${BUILD}" ] || mkdir -p "${BUILD}"
 
-"${TOP}"/modules/uu.micros/build --output-dir "${BUILD}" "$@"
+"${TOP}"/modules/uu.micros/build --src-dir "${TOP}"/src --output-dir "${BUILD}" "$@"

@@ -8,12 +8,16 @@
 #include <stb_image.c>
 #undef STBI_HEADER_FILE_ONLY
 
+#include <cmath>
 #include <string>
 #include <vector>
 
-static std::string gbl_PROG;
-
+#include "../common.hpp"
+#include <cstdlib>
 #include <memory>
+
+static char const *gbl_PROG;
+static char const *gbl_PHOTO_JPG = "photo.jpg";
 
 static void draw_image_on_screen(uint64_t time_micros)
 {
@@ -44,10 +48,10 @@ static void draw_image_on_screen(uint64_t time_micros)
                 // this allows changing the source file easily without extra copying
                 //
                 char const* dataFileSources[] = {
-                        gbl_PROG.c_str(), __FILE__,
+                        nullptr, gbl_PROG, __FILE__,
                 };
 
-                char const* imageFile = "photo.jpg";
+                char const* imageFile = gbl_PHOTO_JPG;
 
                 char const* vertexShaderStrings[] = {
                         "#version 150\n",
@@ -59,27 +63,34 @@ static void draw_image_on_screen(uint64_t time_micros)
                         nullptr,
                 };
 
-                char const* fragmentShaderStrings[] = {
-                        "#version 150\n",
-                        "uniform vec3 iResolution; // viewport resolution in pixels\n",
-                        "uniform float iGlobalTime; // shader playback time in seconds\n",
-                        "uniform sampler2D iChannel0; // first texture\n",
-                        "out vec4 oColor;\n",
-                        "void main()\n",
-                        "{\n",
-                        "    vec2 photoResolution = textureSize(iChannel0, 0);\n",
-                        "    // scale photo and position it to be at the center\n",
-                        "    vec2 scales = vec2(iResolution.x/photoResolution.x,iResolution.y/photoResolution.y);\n",
-                        "    photoResolution = min(scales.x, scales.y) * photoResolution;\n",
-                        "    vec2 translation;\n",
-                        "    translation.y = max(0,(iResolution.y - photoResolution.y)/2.0);\n",
-                        "    translation.x = max(0,(iResolution.x - photoResolution.x)/2.0);\n",
-                        "    vec2 uv = (gl_FragCoord.xy + vec2(0.5, 0.5) - translation) / photoResolution.xy;\n",
-                        "    vec2 photouv = vec2(uv.x, 1.0-uv.y);\n",
-                        "    oColor = texture(iChannel0, photouv);\n",
-                        "}\n",
-                        nullptr,
+                auto slurpDatafile = [&dataFileSources](std::string relpath) {
+                        auto dirname = [](std::string filepath) {
+                                return filepath.substr(0, filepath.find_last_of("/\\"));
+                        };
+
+                        for (auto base : dataFileSources) {
+                                auto prefix = base ? (dirname(base) + "/") : "";
+                                auto path = prefix + relpath;
+                                unique_cstr string = slurp(path.c_str());
+                                if (!string.get()) {
+                                        continue;
+                                }
+
+                                auto sourceBytes = path.size() + 1;
+                                auto source = unique_cstr { (char*)std::calloc(1, sourceBytes), std::free };
+                                memcpy(source.get(), path.c_str(), sourceBytes);
+                                return std::make_pair(std::move(string), std::move(source));
+                        }
+                        return std::make_pair(unique_cstr { nullptr, std::free }, unique_cstr { nullptr, std::free });
                 };
+
+                auto fsData = slurpDatafile("shader.fs");
+
+                char const* fragmentShaderStrings[] = {
+                        fsData.first.get(),
+                        nullptr
+                };
+                char const* fragmentShaderSource = fsData.second.get();
 
                 GLuint quadIndices[] = {
                         0, 1, 2, 2, 3, 0,
@@ -99,12 +110,11 @@ static void draw_image_on_screen(uint64_t time_micros)
                         int height;
                 };
 
-                auto image_content = [](std::string const& base_path,
-                std::string const& relpath) {
+                auto image_content = [](std::string const& path) {
                         int x, y, n = 4;
-                        auto data = stbi_load((base_path + "/" + relpath).c_str(), &x, &y, &n, 4);
+                        auto data = stbi_load(path.c_str(), &x, &y, &n, 4);
                         if (!data) {
-                                throw std::runtime_error("could not load file at " + relpath);
+                                throw std::runtime_error("could not load file at " + path);
                         }
 
                         return RGBAImage {
@@ -122,7 +132,10 @@ static void draw_image_on_screen(uint64_t time_micros)
 
                         for (auto base : dataFileSources) {
                                 try {
-                                        return image_content(dirname(base), relpath);
+                                        auto prefix = base ? (dirname(base) + "/") : "";
+                                        auto path = prefix + relpath;
+
+                                        return image_content(path);
                                 } catch (...) {
                                         continue;
                                 }
@@ -147,7 +160,7 @@ static void draw_image_on_screen(uint64_t time_micros)
                                 glTexParameteri(target, GL_TEXTURE_BASE_LEVEL, 0);
                                 glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, 0);
                                 glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-                                glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                                glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
                                 glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
                                 glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
                                 glTexImage2D(target, 0, GL_RGBA, image.width, image.height, 0, GL_RGBA,
@@ -173,9 +186,10 @@ static void draw_image_on_screen(uint64_t time_micros)
                         GLenum type;
                         char const** lines;
                         GLint lineCount;
+                        char const* source;
                 } shaderDefs[2] = {
-                        { GL_VERTEX_SHADER, vertexShaderStrings, countStrings(vertexShaderStrings) },
-                        { GL_FRAGMENT_SHADER, fragmentShaderStrings, countStrings(fragmentShaderStrings) },
+                        { GL_VERTEX_SHADER, vertexShaderStrings, countStrings(vertexShaderStrings), "<main>" },
+                        { GL_FRAGMENT_SHADER, fragmentShaderStrings, countStrings(fragmentShaderStrings), fragmentShaderSource },
                 };
                 {
                         auto i = 0;
@@ -193,7 +207,8 @@ static void draw_image_on_screen(uint64_t time_micros)
                                         auto output = std::vector<char> {};
                                         output.reserve(length + 1);
                                         glGetShaderInfoLog(shader, length, &length, &output.front());
-                                        fprintf(stderr, "ERROR compiling shader #%d: %s\n", 1+i, &output.front());
+                                        fprintf(stderr, "error:%s:0:%s while compiling shader #%d\n", def.source,
+                                                &output.front(), 1+i);
                                 }
                                 glAttachShader(all.shaderProgram, shader);
                                 all.shaders[i++] = shader;
@@ -266,7 +281,9 @@ static void draw_image_on_screen(uint64_t time_micros)
                 glUniform3fv(glGetUniformLocation(all.shaderProgram, "iResolution"), 1,
                              resolution);
 
-                auto globalTimeInSeconds = static_cast<GLfloat> ((double) time_micros / 1e6);
+                auto globalTimeInSeconds = static_cast<GLfloat> (fmod(time_micros / 1e6,
+                                           3600.0));
+
                 glUniform1fv(glGetUniformLocation(all.shaderProgram, "iGlobalTime"), 1,
                              &globalTimeInSeconds);
         }
@@ -293,10 +310,6 @@ static void draw_image_on_screen(uint64_t time_micros)
         glUseProgram(0);
 }
 
-BEGIN_NOWARN_BLOCK
-#include <stb_image.c>
-END_NOWARN_BLOCK
-
 extern void render_next_gl3(uint64_t time_micros)
 {
         draw_image_on_screen(time_micros);
@@ -311,10 +324,18 @@ extern void render_next_2chn_48khz_audio(uint64_t time_micros,
 
 int main (int argc, char** argv)
 {
-        (void) argc;
         gbl_PROG = argv[0];
+        if (argc > 1) {
+                gbl_PHOTO_JPG = argv[1];
+        }
 
         runtime_init();
 
         return 0;
 }
+
+// LIBRARY CODE
+
+BEGIN_NOWARN_BLOCK
+#include <stb_image.c>
+END_NOWARN_BLOCK
