@@ -13,6 +13,13 @@
 
 static std::string gbl_PROG;
 
+#define FROM_FILE
+
+#if defined(FROM_FILE)
+#include "../common.hpp"
+#include <cstdlib>
+#endif
+
 #include <memory>
 
 static void draw_image_on_screen(uint64_t time_micros)
@@ -59,6 +66,29 @@ static void draw_image_on_screen(uint64_t time_micros)
                         nullptr,
                 };
 
+#if defined(FROM_FILE)
+                auto slurpDatafile = [&dataFileSources](std::string relpath) {
+                        auto dirname = [](std::string filepath) {
+                                return filepath.substr(0, filepath.find_last_of("/\\"));
+                        };
+
+                        for (auto base : dataFileSources) {
+                                unique_cstr string = slurp((dirname(base) + "/" + relpath).c_str());
+                                if (!string.get()) {
+                                        continue;
+                                }
+                                return std::move(string);
+                        }
+                        return unique_cstr { nullptr, std::free };
+                };
+
+                auto fsData = slurpDatafile("shader.fs");
+
+                char const* fragmentShaderStrings[] = {
+                        fsData.get(),
+                        nullptr
+                };
+#else
                 char const* fragmentShaderStrings[] = {
                         "#version 150\n",
                         "uniform vec3 iResolution; // viewport resolution in pixels\n",
@@ -80,6 +110,7 @@ static void draw_image_on_screen(uint64_t time_micros)
                         "}\n",
                         nullptr,
                 };
+#endif
 
                 GLuint quadIndices[] = {
                         0, 1, 2, 2, 3, 0,
@@ -146,7 +177,7 @@ static void draw_image_on_screen(uint64_t time_micros)
                                 glBindTexture(target, all.textures[i]);
                                 glTexParameteri(target, GL_TEXTURE_BASE_LEVEL, 0);
                                 glTexParameteri(target, GL_TEXTURE_MAX_LEVEL, 0);
-                                glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                                glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
                                 glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
                                 glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
                                 glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
