@@ -9,7 +9,7 @@ uniform sampler2D iChannel0; // first texture
 uniform int iInterpolationMethod; // whether to interpolate or not
 
 // outputs
-out vec4 oColor;
+out vec4 oFragColor;
 
 // program
 const bool mustScaleToFit = true;
@@ -23,18 +23,18 @@ const int LANCZOS3_RESAMPLING = 3;
 float mitchellNetravali(float x)
 {
         float ax = abs(x);
-        if (ax < 1) {
+        if (ax < 1.0) {
                 return 7.0*ax*ax*ax
-                       - 12*ax*ax
+                       - 12.0*ax*ax
                        + 16.0/3.0;
-        } else if (ax >= 1 && ax < 2) {
+        } else if (ax >= 1.0 && ax < 2.0) {
                 return -7.0/3.0 * ax*ax*ax
                        + 12.0 * ax*ax
                        + -20.0 * ax
                        + 32.0/3.0;
         }
 
-        return 0;
+        return 0.0;
 }
 
 float lanczos3(float x)
@@ -73,9 +73,9 @@ float lanczos3(float x)
 //    { -7/3*|x|^3 + 12*|x|^2 + -20*|x| + 32/3 | if |x| in [1..2[
 //    { 0 } otherwise
 //
-vec4 sampleWithMitchellNetravali(sampler2D sampler, vec2 uv, vec2 stepxy)
+vec4 sampleWithMitchellNetravali(sampler2D sampler, vec2 samplerSize,
+                                 vec2 stepxy, vec2 uv)
 {
-        vec2 samplerSize = textureSize(sampler, 0);
         vec2 texel = 1.0 / samplerSize;
 
         vec2 texelPos = samplerSize * uv;
@@ -101,16 +101,16 @@ vec4 sampleWithMitchellNetravali(sampler2D sampler, vec2 uv, vec2 stepxy)
         }
 
         vec2 speed = min(vec2(1.0), texel / stepxy);
-        vec4 linetaps = vec4(mitchellNetravali(speed.x*(-1 - f.x)),
-                             mitchellNetravali(speed.x*(0-f.x)),
-                             mitchellNetravali(speed.x*(1-f.x)),
-                             mitchellNetravali(speed.x*(2-f.x))
+        vec4 linetaps = vec4(mitchellNetravali(speed.x*(-1.0 - f.x)),
+                             mitchellNetravali(speed.x*(0.0-f.x)),
+                             mitchellNetravali(speed.x*(1.0-f.x)),
+                             mitchellNetravali(speed.x*(2.0-f.x))
                             );
         linetaps /= dot(linetaps, vec4(1.0));
-        vec4 columntaps = vec4(mitchellNetravali(speed.y*(-1 - f.y)),
-                               mitchellNetravali(speed.y*(0-f.y)),
-                               mitchellNetravali(speed.y*(1-f.y)),
-                               mitchellNetravali(speed.y*(2-f.y))
+        vec4 columntaps = vec4(mitchellNetravali(speed.y*(-1.0 - f.y)),
+                               mitchellNetravali(speed.y*(0.0-f.y)),
+                               mitchellNetravali(speed.y*(1.0-f.y)),
+                               mitchellNetravali(speed.y*(2.0-f.y))
                               );
         columntaps /= dot(columntaps, vec4(1.0));
 
@@ -136,9 +136,9 @@ vec4 sampleWithMitchellNetravali(sampler2D sampler, vec2 uv, vec2 stepxy)
 // LANCZOS 3 INTERPOLATION
 // ---------------------
 //
-vec4 sampleWithLanczos3Interpolation(sampler2D sampler, vec2 uv, vec2 stepxy)
+vec4 sampleWithLanczos3Interpolation(sampler2D sampler, vec2 samplerSize,
+                                     vec2 stepxy, vec2 uv)
 {
-        vec2 samplerSize = textureSize(sampler, 0);
         vec2 texel = 1.0 / samplerSize;
         vec2 texelPos = uv / texel;
         vec2 bottomLeftTexelPos = floor(texelPos - vec2(0.5)) + vec2(0.5);
@@ -164,14 +164,14 @@ vec4 sampleWithLanczos3Interpolation(sampler2D sampler, vec2 uv, vec2 stepxy)
         vec2 f = texelPos - bottomLeftTexelPos;
         vec2 speed = min(vec2(1.0), texel / stepxy);
         vec3 ltapsLeft = vec3(
-                                 lanczos3(speed.x*(-2 - f.x)),
-                                 lanczos3(speed.x*(-1 - f.x)),
-                                 lanczos3(speed.x*(0 - f.x))
+                                 lanczos3(speed.x*(-2.0 - f.x)),
+                                 lanczos3(speed.x*(-1.0 - f.x)),
+                                 lanczos3(speed.x*(0.0 - f.x))
                          );
         vec3 ltapsRight = vec3(
-                                  lanczos3(speed.x*(1 - f.x)),
-                                  lanczos3(speed.x*(2 - f.x)),
-                                  lanczos3(speed.x*(3 - f.x))
+                                  lanczos3(speed.x*(1.0 - f.x)),
+                                  lanczos3(speed.x*(2.0 - f.x)),
+                                  lanczos3(speed.x*(3.0 - f.x))
                           );
         float lsum = dot(ltapsLeft, vec3(1)) + dot(ltapsRight, vec3(1));
 
@@ -179,16 +179,16 @@ vec4 sampleWithLanczos3Interpolation(sampler2D sampler, vec2 uv, vec2 stepxy)
         ltapsLeft /= lsum;
 
         vec3 coltapsUp = vec3(
-                                 lanczos3(speed.y*(-2 - f.y)),
-                                 lanczos3(speed.y*(-1 - f.y)),
-                                 lanczos3(speed.y*( 0 - f.y))
+                                 lanczos3(speed.y*(-2.0 - f.y)),
+                                 lanczos3(speed.y*(-1.0 - f.y)),
+                                 lanczos3(speed.y*( 0.0 - f.y))
                          );
         vec3 coltapsDown = vec3(
-                                   lanczos3(speed.y*(1 - f.y)),
-                                   lanczos3(speed.y*(2 - f.y)),
-                                   lanczos3(speed.y*(3 - f.y))
+                                   lanczos3(speed.y*(1.0 - f.y)),
+                                   lanczos3(speed.y*(2.0 - f.y)),
+                                   lanczos3(speed.y*(3.0 - f.y))
                            );
-        float csum = dot(coltapsUp, vec3(1)) + dot(coltapsDown, vec3(1));
+        float csum = dot(coltapsUp, vec3(1.0)) + dot(coltapsDown, vec3(1.0));
 
         coltapsUp /= csum;
         coltapsDown /= csum;
@@ -234,9 +234,9 @@ vec4 sampleWithLanczos3Interpolation(sampler2D sampler, vec2 uv, vec2 stepxy)
 // You would normally just configure the texture to GL_LINEAR
 // interpolation
 //
-vec4 sampleWithBilinearInterpolation(sampler2D sampler, vec2 uv)
+vec4 sampleWithBilinearInterpolation(sampler2D sampler, vec2 samplerSize,
+                                     vec2 uv)
 {
-        vec2 samplerSize = textureSize(sampler, 0);
         vec2 texel = 1.0 / samplerSize;
         vec2 texelPos = samplerSize * uv;
 
@@ -271,9 +271,8 @@ vec4 sampleWithBilinearInterpolation(sampler2D sampler, vec2 uv)
 //
 // We here show what OpenGL does internally
 //
-vec4 sampleWithNearestNeighbor(sampler2D sampler, vec2 uv)
+vec4 sampleWithNearestNeighbor(sampler2D sampler, vec2 samplerSize, vec2 uv)
 {
-        vec2 samplerSize = textureSize(sampler, 0);
         vec2 nearestTexelPos = round(samplerSize * uv - vec2(0.5)) + vec2(0.5);
         return texture(sampler, nearestTexelPos / samplerSize);
 }
@@ -325,17 +324,22 @@ void main()
         vec2 uvAtCenter = vec2(0.5, 0.5);
         vec2 uv = uvAtCenter + vec2(1.0, -1.0) * uvPerFragCoord * fragCoordFromCenter;
 
+        vec4 color;
         if (interpolationMethod == MITCHELL_NETRAVALLI_RESAMPLING) {
-                oColor = sampleWithMitchellNetravali(iChannel0, uv, uvPerFragCoord);
-                oColor = drawSquare(8, 32, vec4(1.0, 0.4, 0.2, 0.0), gl_FragCoord.xy, oColor);
+                color = sampleWithMitchellNetravali(iChannel0, iChannel0Size, uvPerFragCoord,
+                                                    uv);
+                color = drawSquare(8, 32, vec4(1.0, 0.4, 0.2, 0.0), gl_FragCoord.xy, color);
         } else if (interpolationMethod == LANCZOS3_RESAMPLING) {
-                oColor = sampleWithLanczos3Interpolation(iChannel0, uv, uvPerFragCoord);
-                oColor = drawSquare(8, 32, vec4(0.2, 0.7, 0.2, 0.0), gl_FragCoord.xy, oColor);
+                color = sampleWithLanczos3Interpolation(iChannel0, iChannel0Size,
+                                                        uvPerFragCoord, uv);
+                color = drawSquare(8, 32, vec4(0.2, 0.7, 0.2, 0.0), gl_FragCoord.xy, color);
         } else if (interpolationMethod == BILINEAR_RESAMPLING) {
-                oColor = sampleWithBilinearInterpolation(iChannel0, uv);
-                oColor = drawSquare(8, 32, vec4(0.0, 0.8, 0.72, 0.0), gl_FragCoord.xy,
-                                    oColor);
+                color = sampleWithBilinearInterpolation(iChannel0, iChannel0Size, uv);
+                color = drawSquare(8, 32, vec4(0.0, 0.8, 0.72, 0.0), gl_FragCoord.xy,
+                                   color);
         } else {
-                oColor = sampleWithNearestNeighbor(iChannel0, uv);
+                color = sampleWithNearestNeighbor(iChannel0, iChannel0Size, uv);
         }
+
+        oFragColor = color;
 }
