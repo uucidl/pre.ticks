@@ -1,5 +1,6 @@
 // -*- c -*-
 
+// GLSL 1.50 for OpenGL 3.2
 #version 150
 
 // inputs & uniforms
@@ -143,19 +144,23 @@ vec4 sampleWithLanczos3Interpolation(sampler2D sampler, vec2 samplerSize,
         vec2 texelPos = uv / texel;
         vec2 bottomLeftTexelPos = floor(texelPos - vec2(0.5)) + vec2(0.5);
 
-        float xpos[6] = float[6](
+        vec3 xposLeft = vec3(
                                 (bottomLeftTexelPos.x - 2.0) * texel.x,
                                 (bottomLeftTexelPos.x - 1.0) * texel.x,
-                                (bottomLeftTexelPos.x + 0.0) * texel.x,
-                                (bottomLeftTexelPos.x + 1.0) * texel.x,
-                                (bottomLeftTexelPos.x + 2.0) * texel.x,
-                                (bottomLeftTexelPos.x + 3.0) * texel.x
+                                (bottomLeftTexelPos.x + 0.0) * texel.x
                         );
+        vec3 xposRight = vec3(
+                                 (bottomLeftTexelPos.x + 1.0) * texel.x,
+                                 (bottomLeftTexelPos.x + 2.0) * texel.x,
+                                 (bottomLeftTexelPos.x + 3.0) * texel.x
+                         );
 
-        float ypos[6] = float[6](
-                                (bottomLeftTexelPos.y - 2.0) * texel.y,
-                                (bottomLeftTexelPos.y - 1.0) * texel.y,
-                                (bottomLeftTexelPos.y + 0.0) * texel.y,
+        vec3 yposUp = vec3(
+                              (bottomLeftTexelPos.y - 2.0) * texel.y,
+                              (bottomLeftTexelPos.y - 1.0) * texel.y,
+                              (bottomLeftTexelPos.y + 0.0) * texel.y
+                      );
+        vec3 yposDown = vec3(
                                 (bottomLeftTexelPos.y + 1.0) * texel.y,
                                 (bottomLeftTexelPos.y + 2.0) * texel.y,
                                 (bottomLeftTexelPos.y + 3.0) * texel.y
@@ -199,11 +204,11 @@ vec4 sampleWithLanczos3Interpolation(sampler2D sampler, vec2 samplerSize,
                 vec4 lineColor = vec4(0);
                 for (int coli = 0; coli < 3; coli++) {
                         float ltap = ltapsLeft[coli];
-                        lineColor += ltap * texture(sampler, vec2(xpos[coli], ypos[linei]));
+                        lineColor += ltap * texture(sampler, vec2(xposLeft[coli], yposUp[linei]));
                 }
                 for (int coli = 3; coli < 6; coli++) {
                         float ltap = ltapsRight[coli - 3];
-                        lineColor += ltap * texture(sampler, vec2(xpos[coli], ypos[linei]));
+                        lineColor += ltap * texture(sampler, vec2(xposRight[coli], yposUp[linei]));
                 }
                 color += ctap * lineColor;
         }
@@ -212,11 +217,11 @@ vec4 sampleWithLanczos3Interpolation(sampler2D sampler, vec2 samplerSize,
                 vec4 lineColor = vec4(0);
                 for (int coli = 0; coli < 3; coli++) {
                         float ltap = ltapsLeft[coli];
-                        lineColor += ltap * texture(sampler, vec2(xpos[coli], ypos[linei]));
+                        lineColor += ltap * texture(sampler, vec2(xposLeft[coli], yposDown[linei]));
                 }
                 for (int coli = 3; coli < 6; coli++) {
                         float ltap = ltapsRight[coli - 3];
-                        lineColor += ltap * texture(sampler, vec2(xpos[coli], ypos[linei]));
+                        lineColor += ltap * texture(sampler, vec2(xposRight[coli], yposDown[linei]));
                 }
                 color += ctap * lineColor;
         }
