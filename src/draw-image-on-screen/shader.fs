@@ -56,6 +56,45 @@ float lanczos3(float x)
         return sin(pix) * sin(pix / radius) / (pix * pix);
 }
 
+// kernel summer for a 3x3 matrix
+vec4 kernel3(sampler2D sampler, vec3 x3, vec3 linetaps, vec3 y3,
+             vec3 columntaps)
+{
+        return columntaps.r * (texture(sampler, vec2(x3.r, y3.r)) * linetaps.r +
+                               texture(sampler, vec2(x3.g, y3.r)) * linetaps.g +
+                               texture(sampler, vec2(x3.b, y3.r)) * linetaps.b) +
+               columntaps.g * (texture(sampler, vec2(x3.r, y3.g)) * linetaps.r +
+                               texture(sampler, vec2(x3.g, y3.g)) * linetaps.g +
+                               texture(sampler, vec2(x3.b, y3.g)) * linetaps.b) +
+               columntaps.b * (texture(sampler, vec2(x3.r, y3.b)) * linetaps.r +
+                               texture(sampler, vec2(x3.g, y3.b)) * linetaps.g +
+                               texture(sampler, vec2(x3.b, y3.b)) * linetaps.b)
+               ;
+}
+
+// kernel summer for a 4x4 matrix
+vec4 kernel4(sampler2D sampler, vec4 x4, vec4 linetaps, vec4 y4,
+             vec4 columntaps)
+{
+        return columntaps.r * (texture(sampler, vec2(x4.r, y4.r)) * linetaps.r +
+                               texture(sampler, vec2(x4.g, y4.r)) * linetaps.g +
+                               texture(sampler, vec2(x4.b, y4.r)) * linetaps.b +
+                               texture(sampler, vec2(x4.a, y4.r)) * linetaps.a) +
+               columntaps.g * (texture(sampler, vec2(x4.r, y4.g)) * linetaps.r +
+                               texture(sampler, vec2(x4.g, y4.g)) * linetaps.g +
+                               texture(sampler, vec2(x4.b, y4.g)) * linetaps.b +
+                               texture(sampler, vec2(x4.a, y4.g)) * linetaps.a) +
+               columntaps.b * (texture(sampler, vec2(x4.r, y4.b)) * linetaps.r +
+                               texture(sampler, vec2(x4.g, y4.b)) * linetaps.g +
+                               texture(sampler, vec2(x4.b, y4.b)) * linetaps.b +
+                               texture(sampler, vec2(x4.a, y4.b)) * linetaps.a) +
+               columntaps.a * (texture(sampler, vec2(x4.r, y4.a)) * linetaps.r +
+                               texture(sampler, vec2(x4.g, y4.a)) * linetaps.g +
+                               texture(sampler, vec2(x4.b, y4.a)) * linetaps.b +
+                               texture(sampler, vec2(x4.a, y4.a)) * linetaps.a)
+               ;
+}
+
 // MITCHELL - NETRAVALI
 // -------------------
 //
@@ -114,23 +153,7 @@ vec4 sampleWithMitchellNetravali(sampler2D sampler, vec2 samplerSize,
                               );
         columntaps /= dot(columntaps, vec4(1.0));
 
-        return columntaps.r * (texture(sampler, vec2(xpos.r, ypos.r)) * linetaps.r +
-                               texture(sampler, vec2(xpos.g, ypos.r)) * linetaps.g +
-                               texture(sampler, vec2(xpos.b, ypos.r)) * linetaps.b +
-                               texture(sampler, vec2(xpos.a, ypos.r)) * linetaps.a) +
-               columntaps.g * (texture(sampler, vec2(xpos.r, ypos.g)) * linetaps.r +
-                               texture(sampler, vec2(xpos.g, ypos.g)) * linetaps.g +
-                               texture(sampler, vec2(xpos.b, ypos.g)) * linetaps.b +
-                               texture(sampler, vec2(xpos.a, ypos.g)) * linetaps.a) +
-               columntaps.b * (texture(sampler, vec2(xpos.r, ypos.b)) * linetaps.r +
-                               texture(sampler, vec2(xpos.g, ypos.b)) * linetaps.g +
-                               texture(sampler, vec2(xpos.b, ypos.b)) * linetaps.b +
-                               texture(sampler, vec2(xpos.a, ypos.b)) * linetaps.a) +
-               columntaps.a * (texture(sampler, vec2(xpos.r, ypos.a)) * linetaps.r +
-                               texture(sampler, vec2(xpos.g, ypos.a)) * linetaps.g +
-                               texture(sampler, vec2(xpos.b, ypos.a)) * linetaps.b +
-                               texture(sampler, vec2(xpos.a, ypos.a)) * linetaps.a)
-               ;
+        return kernel4(sampler, xpos, linetaps, ypos, columntaps);
 }
 
 // LANCZOS 3 INTERPOLATION
@@ -143,85 +166,64 @@ vec4 sampleWithLanczos3Interpolation(sampler2D sampler, vec2 samplerSize,
         vec2 texelPos = uv / texel;
         vec2 bottomLeftTexelPos = floor(texelPos - vec2(0.5)) + vec2(0.5);
 
-        float xpos[6] = float[6](
-                                (bottomLeftTexelPos.x - 2.0) * texel.x,
-                                (bottomLeftTexelPos.x - 1.0) * texel.x,
-                                (bottomLeftTexelPos.x + 0.0) * texel.x,
-                                (bottomLeftTexelPos.x + 1.0) * texel.x,
-                                (bottomLeftTexelPos.x + 2.0) * texel.x,
-                                (bottomLeftTexelPos.x + 3.0) * texel.x
-                        );
+        vec3 x0_2 = vec3(
+                            (bottomLeftTexelPos.x - 2.0) * texel.x,
+                            (bottomLeftTexelPos.x - 1.0) * texel.x,
+                            (bottomLeftTexelPos.x + 0.0) * texel.x
+                    );
+        vec3 x3_5 = vec3(
+                            (bottomLeftTexelPos.x + 1.0) * texel.x,
+                            (bottomLeftTexelPos.x + 2.0) * texel.x,
+                            (bottomLeftTexelPos.x + 3.0) * texel.x
+                    );
 
-        float ypos[6] = float[6](
-                                (bottomLeftTexelPos.y - 2.0) * texel.y,
-                                (bottomLeftTexelPos.y - 1.0) * texel.y,
-                                (bottomLeftTexelPos.y + 0.0) * texel.y,
-                                (bottomLeftTexelPos.y + 1.0) * texel.y,
-                                (bottomLeftTexelPos.y + 2.0) * texel.y,
-                                (bottomLeftTexelPos.y + 3.0) * texel.y
-                        );
+        vec3 y0_2 = vec3(
+                            (bottomLeftTexelPos.y - 2.0) * texel.y,
+                            (bottomLeftTexelPos.y - 1.0) * texel.y,
+                            (bottomLeftTexelPos.y + 0.0) * texel.y
+                    );
+        vec3 y3_5 = vec3(
+                            (bottomLeftTexelPos.y + 1.0) * texel.y,
+                            (bottomLeftTexelPos.y + 2.0) * texel.y,
+                            (bottomLeftTexelPos.y + 3.0) * texel.y
+                    );
 
         vec2 f = texelPos - bottomLeftTexelPos;
         vec2 speed = min(vec2(1.0), texel / stepxy);
-        vec3 ltapsLeft = vec3(
-                                 lanczos3(speed.x*(-2.0 - f.x)),
-                                 lanczos3(speed.x*(-1.0 - f.x)),
-                                 lanczos3(speed.x*(0.0 - f.x))
-                         );
-        vec3 ltapsRight = vec3(
-                                  lanczos3(speed.x*(1.0 - f.x)),
-                                  lanczos3(speed.x*(2.0 - f.x)),
-                                  lanczos3(speed.x*(3.0 - f.x))
+        vec3 ltaps0_2 = vec3(
+                                lanczos3(speed.x*(-2.0 - f.x)),
+                                lanczos3(speed.x*(-1.0 - f.x)),
+                                lanczos3(speed.x*(0.0 - f.x))
+                        );
+        vec3 ltaps3_5 = vec3(
+                                lanczos3(speed.x*(1.0 - f.x)),
+                                lanczos3(speed.x*(2.0 - f.x)),
+                                lanczos3(speed.x*(3.0 - f.x))
+                        );
+        float lsum = dot(ltaps0_2, vec3(1)) + dot(ltaps3_5, vec3(1));
+
+        ltaps0_2 /= lsum;
+        ltaps3_5 /= lsum;
+
+        vec3 coltaps0_2 = vec3(
+                                  lanczos3(speed.y*(-2.0 - f.y)),
+                                  lanczos3(speed.y*(-1.0 - f.y)),
+                                  lanczos3(speed.y*( 0.0 - f.y))
                           );
-        float lsum = dot(ltapsLeft, vec3(1)) + dot(ltapsRight, vec3(1));
+        vec3 coltaps3_5 = vec3(
+                                  lanczos3(speed.y*(1.0 - f.y)),
+                                  lanczos3(speed.y*(2.0 - f.y)),
+                                  lanczos3(speed.y*(3.0 - f.y))
+                          );
+        float csum = dot(coltaps0_2, vec3(1.0)) + dot(coltaps3_5, vec3(1.0));
 
-        ltapsRight /= lsum;
-        ltapsLeft /= lsum;
+        coltaps0_2 /= csum;
+        coltaps3_5 /= csum;
 
-        vec3 coltapsUp = vec3(
-                                 lanczos3(speed.y*(-2.0 - f.y)),
-                                 lanczos3(speed.y*(-1.0 - f.y)),
-                                 lanczos3(speed.y*( 0.0 - f.y))
-                         );
-        vec3 coltapsDown = vec3(
-                                   lanczos3(speed.y*(1.0 - f.y)),
-                                   lanczos3(speed.y*(2.0 - f.y)),
-                                   lanczos3(speed.y*(3.0 - f.y))
-                           );
-        float csum = dot(coltapsUp, vec3(1.0)) + dot(coltapsDown, vec3(1.0));
-
-        coltapsUp /= csum;
-        coltapsDown /= csum;
-
-        vec4 color = vec4(0);
-        for (int linei = 0; linei < 3; linei++) {
-                float ctap = coltapsUp[linei];
-                vec4 lineColor = vec4(0);
-                for (int coli = 0; coli < 3; coli++) {
-                        float ltap = ltapsLeft[coli];
-                        lineColor += ltap * texture(sampler, vec2(xpos[coli], ypos[linei]));
-                }
-                for (int coli = 3; coli < 6; coli++) {
-                        float ltap = ltapsRight[coli - 3];
-                        lineColor += ltap * texture(sampler, vec2(xpos[coli], ypos[linei]));
-                }
-                color += ctap * lineColor;
-        }
-        for (int linei = 3; linei < 6; linei++) {
-                float ctap = coltapsDown[linei-3];
-                vec4 lineColor = vec4(0);
-                for (int coli = 0; coli < 3; coli++) {
-                        float ltap = ltapsLeft[coli];
-                        lineColor += ltap * texture(sampler, vec2(xpos[coli], ypos[linei]));
-                }
-                for (int coli = 3; coli < 6; coli++) {
-                        float ltap = ltapsRight[coli - 3];
-                        lineColor += ltap * texture(sampler, vec2(xpos[coli], ypos[linei]));
-                }
-                color += ctap * lineColor;
-        }
-
-        return color;
+        return kernel3(sampler, x0_2, ltaps0_2, y0_2, coltaps0_2) +
+               kernel3(sampler, x3_5, ltaps3_5, y0_2, coltaps0_2) +
+               kernel3(sampler, x0_2, ltaps0_2, y3_5, coltaps3_5) +
+               kernel3(sampler, x3_5, ltaps3_5, y3_5, coltaps3_5);
 }
 
 // LINEAR INTERPOLATION
