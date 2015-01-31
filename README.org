@@ -12,6 +12,7 @@ To run the examples (there are more than one)
 
 #+begin_src sh
     $ ./draw-on-quad-with-shader.sh
+    $ ./draw-image-on-screen.sh
     $ ./play-house-drum-pattern.sh
 #+end_src
 
