@@ -252,7 +252,7 @@ extern void render_next_gl3(uint64_t time_micros)
         static uint64_t firstFrameMicros = time_micros;
 
         char const *someLines[] = {
-                "twinkle, twinkle star",
+                "twinkle, twinkle little star",
                 "don't tell me you've gone too far",
                 "I miss you and Johann Sfar",
                 "might take another dip in tar!"
