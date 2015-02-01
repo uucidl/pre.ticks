@@ -8,7 +8,9 @@
 #if defined(__clang__)
 #  define BEGIN_NOWARN_BLOCK \
         _Pragma("clang diagnostic push") \
-        _Pragma("clang diagnostic ignored \"-Wmissing-field-initializers\"")
+        _Pragma("clang diagnostic ignored \"-Wmissing-field-initializers\"") \
+        _Pragma("clang diagnostic ignored \"-Wmissing-braces\"") \
+        _Pragma("clang diagnostic ignored \"-Wunused-function\"")
 
 #  define END_NOWARN_BLOCK \
         _Pragma("clang diagnostic pop")
