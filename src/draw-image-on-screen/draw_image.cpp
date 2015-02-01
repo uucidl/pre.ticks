@@ -3,10 +3,7 @@
 #include <micros/api.h>
 
 #include <GL/glew.h>
-
-#define STBI_HEADER_FILE_ONLY
-#include <stb_image.c>
-#undef STBI_HEADER_FILE_ONLY
+#include "../../modules/stb/stb_image.h"
 
 #include <cmath>
 #include <string>
@@ -337,5 +334,6 @@ int main (int argc, char** argv)
 // LIBRARY CODE
 
 BEGIN_NOWARN_BLOCK
-#include <stb_image.c>
+#define STB_IMAGE_IMPLEMENTATION
+#include "../../modules/stb/stb_image.h"
 END_NOWARN_BLOCK

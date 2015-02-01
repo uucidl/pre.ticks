@@ -1,3 +1,6 @@
-[submodule "modules/uu.micros"]
+[submodule "uu.micros"]
 	path = modules/uu.micros
 	url = https://github.com/uucidl/uu.micros.git
+[submodule "stb"]
+	path = modules/stb
+	url = https://github.com/nothings/stb.git
