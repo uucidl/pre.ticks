@@ -14,6 +14,7 @@ To run the examples (there are more than one)
     $ ./draw-on-quad-with-shader.sh
     $ ./draw-image-on-screen.sh
     $ ./play-house-drum-pattern.sh
+    $ ./render-debug-string.sh
 #+end_src
 
 The general pattern being for an example named <example-name>, with its corresponding source code at =./src/<example-name>=
