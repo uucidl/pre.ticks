@@ -1,3 +1,7 @@
-# -*- org -*-
+2015-02-01  Nicolas Léveillé  <nicolas@uucidl.com> v1.0.0
 
-started over, uu.micros is now a submodule
+	* info: first public version, with 4 examples:
+	- drawing on a quad with a pixel shader
+	- rendering a photo with a good reconstruction filter
+	- FM synth playing a drum beat
+	- drawing debug strings using stb_easy_font
