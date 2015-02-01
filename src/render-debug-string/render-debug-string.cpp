@@ -220,12 +220,6 @@ static void draw_debug_string(float pixelX, float pixelY, char const* message,
         }
         // Drawing code
 
-        float const argb[4] = {
-                0.00f, 0.49f, 0.39f, 0.12f,
-        };
-        glClearColor (argb[1], argb[2], argb[3], argb[0]);
-        glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
         glUseProgram(all.shaderProgram);
         {
                 GLint viewport[4];
@@ -249,6 +243,12 @@ static void draw_debug_string(float pixelX, float pixelY, char const* message,
 
 extern void render_next_gl3(uint64_t time_micros)
 {
+        float const argb[4] = {
+                0.00f, 0.49f, 0.39f, 0.12f,
+        };
+        glClearColor (argb[1], argb[2], argb[3], argb[0]);
+        glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
         static uint64_t firstFrameMicros = time_micros;
 
         char const *someLines[] = {
