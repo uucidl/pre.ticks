@@ -2,6 +2,15 @@
 
 A repository based on uu.micros with experiments in demomaking patterns.
 
+The idea is that each self-contained example might serve both a
+documentation and educational need, as well as providing a reference
+for anyone looking to solve audio/visual problems.
+
+* How to contribute
+
+You can submit pull requests or send patches directly. Every
+improvement is welcome.
+
 * After cloning this repository from Git, do
 
 #+begin_src
