@@ -7,8 +7,9 @@ BEGIN_NOWARN_BLOCK
 #include "../../modules/stb/stb_easy_font.h"
 END_NOWARN_BLOCK
 
-#include <vector>
 #include <cassert>
+#include <memory>
+#include <vector>
 
 /*
   Draw a message at a pixel position.

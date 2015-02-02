@@ -3,7 +3,7 @@
 #include <cstdio> // for printf, read/seek etc..
 #include <cstdlib> // for free and calloc
 
-unique_cstr slurp(const char* filepath) noexcept
+unique_cstr slurp(const char* filepath)
 {
         auto file = std::fopen(filepath, "rb");
         if (!file) {

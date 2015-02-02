@@ -16,7 +16,8 @@
         _Pragma("clang diagnostic pop")
 #elif defined(_MSC_VER)
 #  define BEGIN_NOWARN_BLOCK \
-        __pragma(warning(push, 3))
+        __pragma(warning(push, 3)) \
+	__pragma(warning(disable : 4244))
 
 #  define END_NOWARN_BLOCK \
         __pragma(warning(pop))
