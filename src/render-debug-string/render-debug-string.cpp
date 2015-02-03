@@ -37,8 +37,6 @@ static void draw_debug_string(float pixelX, float pixelY, char const* message,
                 size_t stbEasyFontVertexBufferSize = 0;
         } all;
 
-        glGetError(); // do not let error spill over from previous frame
-
         static bool mustInit = true;
         if (mustInit) {
                 mustInit = false;
@@ -194,7 +192,6 @@ static void draw_debug_string(float pixelX, float pixelY, char const* message,
                 }
                 glBindVertexArray(0);
                 delete[] stbVertexIndices;
-                assert(GL_NO_ERROR == glGetError());
         }
 
         // DYNAMIC DATA -> GPU
@@ -217,6 +214,7 @@ static void draw_debug_string(float pixelX, float pixelY, char const* message,
 
                 indicesCount = 6*quadCount;
         }
+
         // Drawing code
 
         glUseProgram(all.shaderProgram);
@@ -245,6 +243,8 @@ extern void render_next_gl3(uint64_t time_micros)
         float const argb[4] = {
                 0.00f, 0.49f, 0.39f, 0.12f,
         };
+
+        glGetError(); // do not let error spill over from previous frame
         glClearColor (argb[1], argb[2], argb[3], argb[0]);
         glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -263,6 +263,7 @@ extern void render_next_gl3(uint64_t time_micros)
                                               sizeof *someLines);
 
         draw_debug_string(0.0f, 0.0f, someLines[indexOfLineToShow], 2);
+        assert(GL_NO_ERROR == glGetError());
 }
 
 extern void render_next_2chn_48khz_audio(uint64_t time_micros,
