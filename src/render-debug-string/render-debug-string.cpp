@@ -19,21 +19,20 @@ END_NOWARN_BLOCK
 static void draw_debug_string(float pixelX, float pixelY, char const* message,
                               int scalePower)
 {
-        struct StbEasyFontVertex {
-                float x;
-                float y;
-                float unused_z;
-                uint8_t unused_color[4];
+        enum {
+                STB_EASY_FONT_VERTEX_BUFFER_ELEMENT_SIZE = 3*sizeof(float) + 4,
+                MAX_CHAR_N = 64,
+                MAX_QUAD_N = 270 * MAX_CHAR_N,
         };
-
         static struct Resources {
                 GLuint shaders[2] = {};
                 GLuint shaderProgram = 0;
-                GLuint quadBuffers[2] = {};
-                GLuint quadVertexArray = 0;
+                GLuint buffers[2] = {};
+                GLuint stbVertexBuffer = 0;
+                GLuint vertexArray = 0;
 
                 // dynamic data
-                std::unique_ptr<struct StbEasyFontVertex, void (*)(void*)>
+                std::unique_ptr<void, void (*)(void*)>
                 stbEasyFontVertexBuffer = { nullptr, nullptr };
                 size_t stbEasyFontVertexBufferSize = 0;
         } all;
@@ -44,16 +43,13 @@ static void draw_debug_string(float pixelX, float pixelY, char const* message,
         if (mustInit) {
                 mustInit = false;
 
-                auto const MAX_CHAR_N = 64;
-                auto const MAX_QUAD_N = 270 * MAX_CHAR_N;
+                // PREPARE DATA
 
-                all.stbEasyFontVertexBufferSize = 4*MAX_QUAD_N*(sizeof
-                                                  *all.stbEasyFontVertexBuffer);
-                all.stbEasyFontVertexBuffer = { (struct StbEasyFontVertex*) malloc(
-                                                        all.stbEasyFontVertexBufferSize), free
-                                              };
-
-                // DATA -> GPU
+                all.stbEasyFontVertexBufferSize =
+                        4*MAX_QUAD_N*STB_EASY_FONT_VERTEX_BUFFER_ELEMENT_SIZE;
+                all.stbEasyFontVertexBuffer = {
+                        malloc(all.stbEasyFontVertexBufferSize), free
+                };
 
                 GLuint baseQuadIndices[] = {
                         0, 1, 2, 2, 3, 0,
@@ -84,8 +80,6 @@ static void draw_debug_string(float pixelX, float pixelY, char const* message,
                         "}\n",
                         nullptr,
                 };
-                char const* vertexShaderSource = __FILE__;
-
                 char const* fragmentShaderStrings[] = {
                         "#version 150\n"
                         "out vec4 oColor;\n"
@@ -95,7 +89,8 @@ static void draw_debug_string(float pixelX, float pixelY, char const* message,
                         "}\n",
                         nullptr
                 };
-                char const* fragmentShaderSource = __FILE__;
+
+                // DATA -> GPU
 
                 auto countStrings = [](char const* lineArray[]) -> GLint {
                         auto count = 0;
@@ -112,8 +107,8 @@ static void draw_debug_string(float pixelX, float pixelY, char const* message,
                         GLint lineCount;
                         char const* source;
                 } shaderDefs[2] = {
-                        { GL_VERTEX_SHADER, vertexShaderStrings, countStrings(vertexShaderStrings), vertexShaderSource },
-                        { GL_FRAGMENT_SHADER, fragmentShaderStrings, countStrings(fragmentShaderStrings), fragmentShaderSource },
+                        { GL_VERTEX_SHADER, vertexShaderStrings, countStrings(vertexShaderStrings), __FILE__ },
+                        { GL_FRAGMENT_SHADER, fragmentShaderStrings, countStrings(fragmentShaderStrings), __FILE__ },
                 };
                 {
                         auto i = 0;
@@ -164,27 +159,29 @@ static void draw_debug_string(float pixelX, float pixelY, char const* message,
                         GLint shaderAttrib;
                 } bufferDefs[] = {
                         { GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW, stbVertexIndices, stbVertexIndicesSize, sizeof *stbVertexIndices, 0, 0 },
-                        { GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW, NULL, 0, sizeof *all.stbEasyFontVertexBuffer, 2, glGetAttribLocation(all.shaderProgram, "position") },
+                        { GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW, NULL, 0, STB_EASY_FONT_VERTEX_BUFFER_ELEMENT_SIZE, 2, glGetAttribLocation(all.shaderProgram, "position") },
                 };
 
                 glGenBuffers(sizeof bufferDefs / sizeof bufferDefs[0],
-                             all.quadBuffers);
+                             all.buffers);
+                // a copy to make things easy
+                all.stbVertexBuffer = all.buffers[1];
                 {
                         auto i = 0;
                         for (auto def : bufferDefs) {
-                                auto id = all.quadBuffers[i++];
+                                auto id = all.buffers[i++];
                                 glBindBuffer(def.target, id);
                                 glBufferData(def.target, def.count * def.elementSize, def.data, def.usage);
                                 glBindBuffer(def.target, 0);
                         }
                 }
 
-                glGenVertexArrays(1, &all.quadVertexArray);
-                glBindVertexArray(all.quadVertexArray);
+                glGenVertexArrays(1, &all.vertexArray);
+                glBindVertexArray(all.vertexArray);
                 {
                         auto i = 0;
                         for (auto def : bufferDefs) {
-                                auto id = all.quadBuffers[i++];
+                                auto id = all.buffers[i++];
                                 glBindBuffer(def.target, id);
 
                                 if (def.target != GL_ARRAY_BUFFER) {
@@ -201,9 +198,10 @@ static void draw_debug_string(float pixelX, float pixelY, char const* message,
         }
 
         // DYNAMIC DATA -> GPU
+
         int indicesCount;
         {
-                auto glBufferId = all.quadBuffers[1];
+                auto glBufferId = all.stbVertexBuffer;
                 auto vertexBuffer = all.stbEasyFontVertexBuffer.get();
                 auto vertexBufferSize = all.stbEasyFontVertexBufferSize;
 
@@ -213,7 +211,7 @@ static void draw_debug_string(float pixelX, float pixelY, char const* message,
 
                 glBindBuffer(GL_ARRAY_BUFFER, glBufferId);
                 glBufferData(GL_ARRAY_BUFFER,
-                             4*quadCount * (sizeof *vertexBuffer),
+                             4*quadCount * STB_EASY_FONT_VERTEX_BUFFER_ELEMENT_SIZE,
                              vertexBuffer, GL_DYNAMIC_DRAW);
                 glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -236,7 +234,7 @@ static void draw_debug_string(float pixelX, float pixelY, char const* message,
                             (7 << scalePower));
         }
 
-        glBindVertexArray(all.quadVertexArray);
+        glBindVertexArray(all.vertexArray);
         glDrawElements(GL_TRIANGLES, indicesCount, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
         glUseProgram(0);
