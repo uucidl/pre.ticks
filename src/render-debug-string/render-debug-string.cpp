@@ -22,7 +22,7 @@ static void draw_debug_string(float pixelX, float pixelY, char const* message,
         enum {
                 STB_EASY_FONT_VERTEX_BUFFER_ELEMENT_SIZE = 3*sizeof(float) + 4,
                 MAX_CHAR_N = 64,
-                MAX_QUAD_N = 270 * MAX_CHAR_N,
+                MAX_QUAD_N = 270 * MAX_CHAR_N / (4*STB_EASY_FONT_VERTEX_BUFFER_ELEMENT_SIZE),
         };
         static struct Resources {
                 GLuint shaders[2] = {};
