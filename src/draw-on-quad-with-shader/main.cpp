@@ -179,14 +179,14 @@ static void draw_shader_on_quad(uint64_t time_micros)
                         auto i = 0;
                         for (auto def : bufferDefs) {
                                 auto id = all.quadBuffers[i++];
-                                glBindBuffer(def.target, id);
-
                                 if (def.target != GL_ARRAY_BUFFER) {
                                         continue;
                                 }
                                 glEnableVertexAttribArray(def.shaderAttrib);
+                                glBindBuffer(GL_ARRAY_BUFFER, id);
                                 glVertexAttribPointer(def.shaderAttrib, def.componentCount, GL_FLOAT,
                                                       GL_FALSE, 0, 0);
+                                glBindBuffer(GL_ARRAY_BUFFER, 0);
                         }
                 }
                 glBindVertexArray(0);
@@ -220,7 +220,9 @@ static void draw_shader_on_quad(uint64_t time_micros)
                              &globalTimeInSeconds);
         }
         glBindVertexArray(all.quadVertexArray);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, all.quadBuffers[0]);
         glDrawElements(GL_TRIANGLES, all.indicesCount, GL_UNSIGNED_INT, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
         glUseProgram(0);
 }

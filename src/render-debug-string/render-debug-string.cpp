@@ -180,14 +180,14 @@ static void draw_debug_string(float pixelX, float pixelY, char const* message,
                         auto i = 0;
                         for (auto def : bufferDefs) {
                                 auto id = all.buffers[i++];
-                                glBindBuffer(def.target, id);
-
                                 if (def.target != GL_ARRAY_BUFFER) {
                                         continue;
                                 }
                                 glEnableVertexAttribArray(def.shaderAttrib);
+                                glBindBuffer(def.target, id);
                                 glVertexAttribPointer(def.shaderAttrib, def.componentCount, GL_FLOAT,
                                                       GL_FALSE, def.elementSize, 0);
+                                glBindBuffer(def.target, 0);
                         }
                 }
                 glBindVertexArray(0);
@@ -233,7 +233,9 @@ static void draw_debug_string(float pixelX, float pixelY, char const* message,
         }
 
         glBindVertexArray(all.vertexArray);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, all.buffers[0]);
         glDrawElements(GL_TRIANGLES, indicesCount, GL_UNSIGNED_INT, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
         glUseProgram(0);
 }
