@@ -1,5 +1,4 @@
 #include "../compile.hpp"
-#include <micros/api.h>
 
 #include <GL/glew.h>
 
@@ -11,17 +10,26 @@ END_NOWARN_BLOCK
 #include <memory>
 #include <vector>
 
+enum {
+        MAX_CHAR_N = 1024,
+};
+
+int draw_debug_string_maxchar()
+{
+        return MAX_CHAR_N;
+}
+
 /*
   Draw a message at a pixel position.
 
   @param scalePower 0,1,2 ... 0 shows the original font, 1 doubles it etc...
 */
-static void draw_debug_string(float pixelX, float pixelY, char const* message,
-                              int scalePower)
+void draw_debug_string(float pixelX, float pixelY,
+                       char const* message,
+                       int scalePower)
 {
         enum {
                 STB_EASY_FONT_VERTEX_BUFFER_ELEMENT_SIZE = 3*sizeof(float) + 4,
-                MAX_CHAR_N = 64,
                 MAX_QUAD_N = 270 * MAX_CHAR_N / (4*STB_EASY_FONT_VERTEX_BUFFER_ELEMENT_SIZE),
         };
         static struct Resources {
@@ -196,13 +204,14 @@ static void draw_debug_string(float pixelX, float pixelY, char const* message,
 
         // DYNAMIC DATA -> GPU
 
+        auto scale = 7.0f / (7 << scalePower);
         int indicesCount;
         {
                 auto glBufferId = all.stbVertexBuffer;
                 auto vertexBuffer = all.stbEasyFontVertexBuffer.get();
                 auto vertexBufferSize = all.stbEasyFontVertexBufferSize;
 
-                auto quadCount = stb_easy_font_print(pixelX, pixelY,
+                auto quadCount = stb_easy_font_print(scale * pixelX, scale * pixelY,
                                                      const_cast<char*>(message),
                                                      NULL, vertexBuffer, vertexBufferSize);
 
@@ -240,44 +249,3 @@ static void draw_debug_string(float pixelX, float pixelY, char const* message,
         glUseProgram(0);
 }
 
-extern void render_next_gl3(uint64_t time_micros)
-{
-        float const argb[4] = {
-                0.00f, 0.49f, 0.39f, 0.12f,
-        };
-
-        glGetError(); // do not let error spill over from previous frame
-        glClearColor (argb[1], argb[2], argb[3], argb[0]);
-        glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        static uint64_t firstFrameMicros = time_micros;
-
-        char const *someLines[] = {
-                "twinkle, twinkle little star",
-                "don't tell me you've gone too far",
-                "I miss you and Johann Sfar",
-                "might take another dip in tar!"
-        };
-
-        auto seconds = (int) ((time_micros - firstFrameMicros) / 2.0 / 1e6);
-
-        auto indexOfLineToShow = (seconds) % (sizeof someLines /
-                                              sizeof *someLines);
-
-        draw_debug_string(0.0f, 0.0f, someLines[indexOfLineToShow], 2);
-        assert(GL_NO_ERROR == glGetError());
-}
-
-extern void render_next_2chn_48khz_audio(uint64_t time_micros,
-                int const sample_count, double left[/*sample_count*/],
-                double right[/*sample_count*/])
-{
-        // silence
-}
-
-int main (int argc, char** argv)
-{
-        runtime_init();
-
-        return 0;
-}
