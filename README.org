@@ -24,6 +24,7 @@ To run the examples (there are more than one)
     $ ./draw-image-on-screen.sh
     $ ./play-house-drum-pattern.sh
     $ ./render-debug-string.sh
+    $ ./draw-cubes.sh
 #+end_src
 
 The general pattern being for an example named <example-name>, with its corresponding source code at =./src/<example-name>=
