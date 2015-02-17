@@ -2,9 +2,8 @@
 
 A repository based on uu.micros with experiments in demomaking patterns.
 
-The idea is that each self-contained example might serve both a
-documentation and educational need, as well as providing a reference
-for anyone looking to solve audio/visual problems.
+They are meant to have very few dependencies if any, to each serve as
+self-contained examples for OpenGL (>= 3.2) & audio programming.
 
 * How to contribute
 
