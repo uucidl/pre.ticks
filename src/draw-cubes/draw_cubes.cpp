@@ -3,8 +3,7 @@
 #include "../render-debug-string/render-debug-string.hpp"
 
 #include <micros/api.h>
-
-#include <GL/glew.h>
+#include <micros/gl3.h>
 
 #include <algorithm>
 #include <cassert>

@@ -3,8 +3,8 @@
 #include "../common.hpp"
 
 #include <micros/api.h>
+#include <micros/gl3.h>
 
-#include <GL/glew.h>
 #include <cassert>
 
 void render_next_gl3(uint64_t time_micros)

@@ -1,6 +1,5 @@
 #include <micros/api.h>
-
-#include <GL/glew.h>
+#include <micros/gl3.h>
 
 #include <cmath>
 #include <cstdio> // for printf, read/seek etc..

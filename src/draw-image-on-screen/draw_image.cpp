@@ -1,8 +1,8 @@
 #include "../compile.hpp"
 
 #include <micros/api.h>
+#include <micros/gl3.h>
 
-#include <GL/glew.h>
 #include "../../modules/stb/stb_image.h"
 
 #include <cmath>
