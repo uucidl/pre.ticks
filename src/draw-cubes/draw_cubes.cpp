@@ -5,6 +5,8 @@
 #include <micros/api.h>
 #include <micros/gl3.h>
 
+#include "../../modules/uu.spdr/spdr.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -163,10 +165,22 @@ static std::pair<char const *,bool> getCurrentErrorString(size_t maxChars)
 static char const *globalProgramFilePath;
 static std::vector<char const*> globalDataFileSiblingsPaths;
 
+static struct SPDR_Context* globalTracer;
 
 /// draw a few shaded cubes and a camera around it
 static void draw_cube_scene (double nowInSeconds)
 {
+        GLfloat resolution[3];
+        SPDR_BEGIN(globalTracer, "graphics", "get_GL_VIEWPORT");
+        {
+                GLint viewport[4];
+                glGetIntegerv(GL_VIEWPORT, viewport);
+                resolution[0] = static_cast<GLfloat> (viewport[2]);
+                resolution[1] = static_cast<GLfloat> (viewport[3]);
+                resolution[2] = 0.0f;
+        }
+        SPDR_END(globalTracer, "graphics", "get_GL_VIEW_PORT");
+
         enum {
                 ELEMENT_BUFFER_INDEX,
                 VERTEX_BUFFER_INDEX,
@@ -179,8 +193,13 @@ static void draw_cube_scene (double nowInSeconds)
                 GLuint vertexArrayBuffers[BUFFERS_N];
                 GLuint vertexArray;
                 GLuint vertexArrayIndicesCount;
+                GLuint iGlobalTimeUniform;
+                GLuint iResolutionUniform;
+                GLuint iObjectCenterPositionUniform;
         } all;
         static bool mustInit = true;
+
+        auto mustValidate = mustInit; // we validate on the init frame
         if (mustInit) {
                 mustInit = false;
 
@@ -278,6 +297,13 @@ static void draw_cube_scene (double nowInSeconds)
                         }
 
                         all.shaderProgram = program;
+
+                        all.iGlobalTimeUniform = glGetUniformLocation(all.shaderProgram,
+                                                 "iGlobalTime");
+                        all.iResolutionUniform = glGetUniformLocation(all.shaderProgram,
+                                                 "iResolution");
+                        all.iObjectCenterPositionUniform = glGetUniformLocation(all.shaderProgram,
+                                                           "iObjectCenterPosition");
 
                         struct BufferDef {
                                 GLenum target;
@@ -485,10 +511,14 @@ static void draw_cube_scene (double nowInSeconds)
                 }
         }
 
+        SPDR_BEGIN(globalTracer, "graphics", "draw_cube_scene::draw_calls");
         glEnable(GL_DEPTH_TEST);
         glUseProgram(all.shaderProgram);
+        SPDR_EVENT(globalTracer, "graphics", "draw_cube_scene::useProgram");
         glBindVertexArray(all.vertexArray);
-        {
+        SPDR_EVENT(globalTracer, "graphics", "draw_cube_scene::boundVertexArray");
+        SPDR_BEGIN(globalTracer, "graphics", "draw_cube_scene::validate");
+        if (mustValidate) {
                 auto program = all.shaderProgram;
                 glValidateProgram(program);
                 GLint status;
@@ -502,58 +532,60 @@ static void draw_cube_scene (double nowInSeconds)
                         pushFormattedError("error:%s while validating program\n", &output.front());
                 }
         }
+        SPDR_END(globalTracer, "graphics", "draw_cube_scene::validate");
 
+        SPDR_BEGIN(globalTracer, "graphics", "draw_cube_scene::settingUniforms");
         // Time
         {
-                glUniform1f(glGetUniformLocation(all.shaderProgram, "iGlobalTime"),
+                glUniform1f(all.iGlobalTimeUniform,
                             static_cast<float> (nowInSeconds));
         }
 
         // Screen information
         {
-                GLint viewport[4];
-                glGetIntegerv(GL_VIEWPORT, viewport);
-                GLfloat resolution[] = {
-                        static_cast<GLfloat> (viewport[2]),
-                        static_cast<GLfloat> (viewport[3]),
-                        0.0,
-                };
-                glUniform3fv(glGetUniformLocation(all.shaderProgram, "iResolution"), 1,
+                glUniform3fv(all.iResolutionUniform, 1,
                              resolution);
         }
+        SPDR_END(globalTracer, "graphics", "draw_cube_scene::settingUniforms");
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
                      all.vertexArrayBuffers[ELEMENT_BUFFER_INDEX]);
-        glUniform3f(glGetUniformLocation(all.shaderProgram, "iObjectCenterPosition"),
+        SPDR_EVENT(globalTracer, "graphics", "draw_cube_scene::boundElementBuffer");
+        glUniform3f(all.iObjectCenterPositionUniform,
                     0.0f,
                     0.0f,
                     0.0f);
+        SPDR_BEGIN(globalTracer, "graphics", "draw_cube_scene::draw1");
         glDrawElements(GL_TRIANGLES, all.vertexArrayIndicesCount, GL_UNSIGNED_INT, 0);
+        SPDR_END(globalTracer, "graphics", "draw_cube_scene::draw1");
 
-        glUniform3f(glGetUniformLocation(all.shaderProgram, "iObjectCenterPosition"),
+        glUniform3f(all.iObjectCenterPositionUniform,
                     3.2f,
                     3.2f,
                     3.2f);
+        SPDR_BEGIN(globalTracer, "graphics", "draw_cube_scene::draw2");
         glDrawElements(GL_TRIANGLES, all.vertexArrayIndicesCount, GL_UNSIGNED_INT, 0);
+        SPDR_END(globalTracer, "graphics", "draw_cube_scene::draw1");
 
-        glUniform3f(glGetUniformLocation(all.shaderProgram, "iObjectCenterPosition"),
+        glUniform3f(all.iObjectCenterPositionUniform,
                     -2.2f,
                     2.2f,
                     2.2f);
+        SPDR_BEGIN(globalTracer, "graphics", "draw_cube_scene::draw3");
         glDrawElements(GL_TRIANGLES, all.vertexArrayIndicesCount, GL_UNSIGNED_INT, 0);
+        SPDR_END(globalTracer, "graphics", "draw_cube_scene::draw3");
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
         glUseProgram(0);
         glDisable(GL_DEPTH_TEST);
+        SPDR_END(globalTracer, "graphics", "draw_cube_scene::draw_calls");
 }
 
 void render_next_gl3(uint64_t micros)
 {
         static auto origin = micros;
         double const seconds = (micros - origin) / 1e6;
-
-        uint64_t const renderStartMicros = now_micros();
 
         auto modulation = 1.0f + 0.25f*float32Square(static_cast<float>(sin(
                                   TAU*seconds / 8.0f)));
@@ -576,9 +608,24 @@ void render_next_gl3(uint64_t micros)
         glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        draw_cube_scene(seconds);
+        uint64_t renderTimeMicros;
+        {
+                uint64_t const renderStartMicros = now_micros();
+                SPDR_BEGIN(globalTracer, "graphics", "draw_scene");
+                draw_cube_scene(seconds);
+                uint64_t const renderFinishMicros = now_micros();
+                assert(renderFinishMicros >= renderStartMicros);
 
-        uint64_t const renderFinishMicros = now_micros();
+                static uint64_t frameCount = 0;
+                renderTimeMicros = renderFinishMicros - renderStartMicros;
+
+                if (renderTimeMicros > 16000) {
+                        SPDR_EVENT1(globalTracer, "graphics", "missed deadline",
+                                    SPDR_FLOAT("renderTimeMicros", (double) renderTimeMicros));
+                }
+                SPDR_END(globalTracer, "graphics", "draw_scene");
+                frameCount++;
+        }
 
         // show some stats
         {
@@ -603,8 +650,8 @@ void render_next_gl3(uint64_t micros)
                 draw_debug_string(3.0f, viewport[3] - 10.f,
                                   &FormattedString("frame time: %f ms, worst: %f ms / %f : render time: %2.f%%",
                                                    deltaMicros / 1e3, worstDeltaInLastPeriod / 1e3,
-                                                   (renderFinishMicros - renderStartMicros) / 1e3,
-                                                   (renderFinishMicros - renderStartMicros) * 60.0 / 1e3 ).front(), 0);
+                                                   renderTimeMicros / 1e3,
+                                                   renderTimeMicros * 60.0 / 1e3 ).front(), 0);
         }
 }
 void render_next_2chn_48khz_audio(uint64_t, int, double*, double*)
@@ -617,7 +664,28 @@ int main (int argc, char **argv)
                 nullptr, globalProgramFilePath, __FILE__,
         };
 
+        if (spdr_init(&globalTracer, malloc(64*1024*1024), 64*1024*1024)) {
+                fprintf(stderr, "could not set up tracer\n");
+                return 1;
+        }
+        spdr_enable_trace(globalTracer, 1);
+
         runtime_init();
+
+        // at program termination, we dump the traces into a chrome://tracing report
+
+        auto file_handle = fopen("trace.json", "wb");
+        if (!file_handle) {
+                fprintf(stderr, "could not open trace.json for writing\n");
+                return 1;
+        }
+        auto print_to_file = [](const char* string, void* user_data) {
+                FILE* fh = (FILE*)user_data;
+                fputs(string, fh);
+        };
+
+        spdr_report(globalTracer, SPDR_CHROME_REPORT, print_to_file, file_handle);
+        fclose(file_handle);
         return 0;
 }
 
