@@ -16,7 +16,8 @@
 static char const *gbl_PROG;
 static char const *gbl_PHOTO_JPG = "photo.jpg";
 
-static void draw_image_on_screen(uint64_t time_micros)
+static void draw_image_on_screen(uint64_t time_micros,
+                                 uint32_t framebuffer_width_px, uint32_t framebuffer_height_px)
 {
         static struct Resources {
                 GLuint shaders[2]      = {};
@@ -269,11 +270,9 @@ static void draw_image_on_screen(uint64_t time_micros)
 
         glUseProgram(all.shaderProgram);
         {
-                GLint viewport[4];
-                glGetIntegerv(GL_VIEWPORT, viewport);
                 GLfloat resolution[] = {
-                        static_cast<GLfloat> (viewport[2]),
-                        static_cast<GLfloat> (viewport[3]),
+                        static_cast<GLfloat> (framebuffer_width_px),
+                        static_cast<GLfloat> (framebuffer_height_px),
                         0.0,
                 };
                 glUniform3fv(glGetUniformLocation(all.shaderProgram, "iResolution"), 1,
@@ -310,9 +309,11 @@ static void draw_image_on_screen(uint64_t time_micros)
         glUseProgram(0);
 }
 
-extern void render_next_gl3(uint64_t time_micros)
+extern void render_next_gl3(uint64_t time_micros,
+                            struct Display display)
 {
-        draw_image_on_screen(time_micros);
+        draw_image_on_screen(time_micros, display.framebuffer_width_px,
+                             display.framebuffer_height_px);
 }
 
 extern void render_next_2chn_48khz_audio(uint64_t time_micros,
