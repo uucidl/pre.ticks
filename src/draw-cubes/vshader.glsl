@@ -23,7 +23,9 @@ void main ()
                                     r*cos(TAU*iGlobalTime/8.0f),
                                     r
                             );
-        vec3 cameraToObject = vec3(0.0, 0.0, 1.0) - cameraCenter;
+        cameraCenter += noise3(0.5*iGlobalTime) / 100.0;
+        vec3 cameraToObject = (noise3(7.9 + 2.0*iGlobalTime)/4.0+vec3(0.0, 0.0,
+                               1.0)) - cameraCenter;
         vec3 cameraToSky = vec3(0.0, 0.0, 1.0);
         // TODO(uucidl) what if cameraToSky == cameraToObject?
 
