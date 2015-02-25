@@ -465,7 +465,7 @@ extern void render_next_2chn_48khz_audio(uint64_t time_micros,
         }
 }
 
-extern void render_next_gl3(uint64_t time_micros)
+extern void render_next_gl3(uint64_t time_micros, struct Display)
 {
         glClearColor (0.2f, 0.2f, 0.3f, 0.0f);
         glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

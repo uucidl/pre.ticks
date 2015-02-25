@@ -7,7 +7,8 @@
 
 #include <cassert>
 
-void render_next_gl3(uint64_t time_micros)
+void render_next_gl3(uint64_t time_micros,
+                     struct Display display)
 {
         float const argb[4] = {
                 0.00f, 0.49f, 0.39f, 0.12f,
@@ -31,7 +32,9 @@ void render_next_gl3(uint64_t time_micros)
         auto indexOfLineToShow = (seconds) % (sizeof someLines /
                                               sizeof *someLines);
 
-        draw_debug_string(0.0f, 0.0f, someLines[indexOfLineToShow], 2);
+        draw_debug_string(0.0f, 0.0f, someLines[indexOfLineToShow], 2,
+                          display.framebuffer_width_px,
+                          display.framebuffer_height_px);
         assert(GL_NO_ERROR == glGetError());
 }
 

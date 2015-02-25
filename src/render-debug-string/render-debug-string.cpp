@@ -26,7 +26,9 @@ int draw_debug_string_maxchar()
 */
 void draw_debug_string(float pixelX, float pixelY,
                        char const* message,
-                       int scalePower)
+                       int scalePower,
+                       uint32_t framebuffer_width_px,
+                       uint32_t framebuffer_height_px)
 {
         enum {
                 STB_EASY_FONT_VERTEX_BUFFER_ELEMENT_SIZE = 3*sizeof(float) + 4,
@@ -228,11 +230,9 @@ void draw_debug_string(float pixelX, float pixelY,
 
         glUseProgram(all.shaderProgram);
         {
-                GLint viewport[4];
-                glGetIntegerv(GL_VIEWPORT, viewport);
                 GLfloat resolution[] = {
-                        static_cast<GLfloat> (viewport[2]),
-                        static_cast<GLfloat> (viewport[3]),
+                        static_cast<GLfloat> (framebuffer_width_px),
+                        static_cast<GLfloat> (framebuffer_height_px),
                         0.0,
                 };
                 glUniform3fv(glGetUniformLocation(all.shaderProgram, "iResolution"), 1,
@@ -248,4 +248,3 @@ void draw_debug_string(float pixelX, float pixelY,
         glBindVertexArray(0);
         glUseProgram(0);
 }
-

@@ -165,8 +165,15 @@ static std::vector<char const*> globalDataFileSiblingsPaths;
 
 
 /// draw a few shaded cubes and a camera around it
-static void draw_cube_scene (double nowInSeconds)
+static void draw_cube_scene (double nowInSeconds,
+                             struct Display display)
 {
+        GLfloat resolution[3] = {
+                static_cast<GLfloat> (display.framebuffer_width_px),
+                static_cast<GLfloat> (display.framebuffer_height_px),
+                0
+        };
+
         enum {
                 ELEMENT_BUFFER_INDEX,
                 VERTEX_BUFFER_INDEX,
@@ -510,17 +517,8 @@ static void draw_cube_scene (double nowInSeconds)
         }
 
         // Screen information
-        {
-                GLint viewport[4];
-                glGetIntegerv(GL_VIEWPORT, viewport);
-                GLfloat resolution[] = {
-                        static_cast<GLfloat> (viewport[2]),
-                        static_cast<GLfloat> (viewport[3]),
-                        0.0,
-                };
-                glUniform3fv(glGetUniformLocation(all.shaderProgram, "iResolution"), 1,
-                             resolution);
-        }
+        glUniform3fv(glGetUniformLocation(all.shaderProgram, "iResolution"), 1,
+                     resolution);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
                      all.vertexArrayBuffers[ELEMENT_BUFFER_INDEX]);
@@ -548,7 +546,8 @@ static void draw_cube_scene (double nowInSeconds)
         glDisable(GL_DEPTH_TEST);
 }
 
-void render_next_gl3(uint64_t micros)
+void render_next_gl3(uint64_t micros,
+                     struct Display display)
 {
         static auto origin = micros;
         double const seconds = (micros - origin) / 1e6;
@@ -562,13 +561,15 @@ void render_next_gl3(uint64_t micros)
                 auto backgroundColor = modulation * V3(0.66f, 0.17f, 0.12f);
                 glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0.0f);
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                draw_debug_string(3.0f, 3.0f, "ERRORS:", 1);
+                auto fb_width_px = display.framebuffer_width_px;
+                auto fb_height_px = display.framebuffer_height_px;
+                draw_debug_string(3.0f, 3.0f, "ERRORS:", 1, fb_width_px, fb_height_px);
                 auto lineY = 23.0f;
                 if (message.second) {
-                        draw_debug_string(3.0f, lineY, "(...)", 0);
+                        draw_debug_string(3.0f, lineY, "(...)", 0, fb_width_px, fb_height_px);
                         lineY += 10.0f;
                 }
-                draw_debug_string(3.0f, lineY, message.first, 0);
+                draw_debug_string(3.0f, lineY, message.first, 0, fb_width_px, fb_height_px);
                 return;
         }
 
@@ -576,7 +577,7 @@ void render_next_gl3(uint64_t micros)
         glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        draw_cube_scene(seconds);
+        draw_cube_scene(seconds, display);
 
         uint64_t const renderFinishMicros = now_micros();
 
@@ -597,14 +598,13 @@ void render_next_gl3(uint64_t micros)
                         tick = 0;
                 }
 
-                GLint viewport[4];
-                glGetIntegerv(GL_VIEWPORT, viewport);
-
-                draw_debug_string(3.0f, viewport[3] - 10.f,
+                draw_debug_string(3.0f, display.framebuffer_height_px - 10.f,
                                   &FormattedString("frame time: %f ms, worst: %f ms / %f : render time: %2.f%%",
                                                    deltaMicros / 1e3, worstDeltaInLastPeriod / 1e3,
                                                    (renderFinishMicros - renderStartMicros) / 1e3,
-                                                   (renderFinishMicros - renderStartMicros) * 60.0 / 1e3 ).front(), 0);
+                                                   (renderFinishMicros - renderStartMicros) * 60.0 / 1e3 ).front(), 0,
+                                  display.framebuffer_width_px,
+                                  display.framebuffer_height_px);
         }
 }
 void render_next_2chn_48khz_audio(uint64_t, int, double*, double*)

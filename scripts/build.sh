@@ -25,4 +25,10 @@ done
 BUILD="${TOP}"/builds
 [ -d "${BUILD}" ] || mkdir -p "${BUILD}"
 
+function lint () {
+    git --no-pager grep GL_VIEWPORT -- *.cpp *.c && printf "don't use GL_VIEWPORT\n" && return 1
+    return 0
+}
+
 "${TOP}"/modules/uu.micros/build --src-dir "${TOP}"/src --output-dir "${BUILD}" "$@"
+lint || exit 1
