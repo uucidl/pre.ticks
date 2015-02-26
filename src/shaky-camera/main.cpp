@@ -40,16 +40,33 @@ static inline struct Float32Vector3 operator * (float scalar,
         return V3(scalar * v.x, scalar * v.y, scalar * v.z);
 }
 
-void render_next_gl3(uint64_t micros)
+void render_next_gl3(uint64_t micros, struct Display)
 {
         static auto origin = micros;
 
         double const seconds = (micros - origin) / 1e6;
+        {
+                auto modulation = 1.0f + 0.25f*float32Square(sinf(TAU*seconds / 8.0f));
+                auto backgroundColor = modulation * V3(0.16f, 0.23f, 0.38f);
+                glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0.0f);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        }
 
-        auto modulation = 1.0f + 0.25f*float32Square(sinf(TAU*seconds / 8.0f));
-        auto backgroundColor = modulation * V3(0.16f, 0.17f, 0.12f);
-        glClearColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // NOTE(nicolas) we want to describe the camera. It is a solid with a position
+        // and some free axes. Every camera needs not to follow the same description:
+        //
+        // We can have 3, 2, 1 axes camera
+        //
+        // For each of these axes there are tracking forces at
+        // play. These represent the action of the camera operator on
+        // the camera to maintain it in one direction.
+        //
+        // These tracking forces are the ones who are subject to _noise_
+        //
+        // The noise itself has to be modeled somehow. For instance
+        // the noise does not need to be aligned with the tracking
+        // force itself. i.e. there are also certain free axes for the
+        // noise forces.
 }
 
 void render_next_2chn_48khz_audio(uint64_t, int, double*, double*)
