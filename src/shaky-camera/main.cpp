@@ -67,6 +67,9 @@ void render_next_gl3(uint64_t micros, struct Display)
         // the noise does not need to be aligned with the tracking
         // force itself. i.e. there are also certain free axes for the
         // noise forces.
+        //
+        // For reference we need some objects to show and various
+        // simulated cameras.
 }
 
 void render_next_2chn_48khz_audio(uint64_t, int, double*, double*)
