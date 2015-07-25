@@ -2,6 +2,8 @@
 
 #include <GL/glew.h>
 
+#include <cmath>
+
 BEGIN_NOWARN_BLOCK
 #include "../../modules/stb/stb_easy_font.h"
 END_NOWARN_BLOCK
