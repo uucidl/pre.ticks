@@ -248,7 +248,7 @@ static void draw_cube_scene (double nowInSeconds,
                         { GL_FRAGMENT_SHADER, fsData.first.get(), fsData.second.get() },
                 };
                 {
-                        auto i = 0;
+                        auto shader_index = 0;
                         auto program = glCreateProgram();
 
                         for (auto def : shaderDefs) {
@@ -264,10 +264,10 @@ static void draw_cube_scene (double nowInSeconds,
                                         output.reserve(length + 1);
                                         glGetShaderInfoLog(shader, length, &length, &output.front());
                                         pushFormattedError("error:%s:0:%s while compiling shader #%d\n", def.source,
-                                                           &output.front(), 1+i);
+                                                           &output.front(), 1+shader_index);
                                 }
                                 glAttachShader(program, shader);
-                                all.shaders[i++] = shader;
+                                all.shaders[shader_index++] = shader;
                         }
 
                         glLinkProgram(program);
@@ -598,11 +598,17 @@ void render_next_gl3(uint64_t micros,
                         tick = 0;
                 }
 
+                double const idealFrameMicros = 1e6 * 1.0 / 60.0;
+                double const frameMillis = deltaMicros / 1e3;
+                double const worstFrameMillis = worstDeltaInLastPeriod / 1e3;
+                double const frameConsumedPercent = (renderFinishMicros - renderStartMicros) /
+                                                    idealFrameMicros;
+
                 draw_debug_string(3.0f, display.framebuffer_height_px - 10.f,
-                                  &FormattedString("frame time: %f ms, worst: %f ms / %f : render time: %2.f%%",
-                                                   deltaMicros / 1e3, worstDeltaInLastPeriod / 1e3,
-                                                   (renderFinishMicros - renderStartMicros) / 1e3,
-                                                   (renderFinishMicros - renderStartMicros) * 60.0 / 1e3 ).front(), 0,
+                                  &FormattedString("frame time: %f ms, worst: %f ms, render expense: %2.f%%",
+                                                   frameMillis,
+                                                   worstFrameMillis,
+                                                   frameConsumedPercent).front(), 0,
                                   display.framebuffer_width_px,
                                   display.framebuffer_height_px);
         }
