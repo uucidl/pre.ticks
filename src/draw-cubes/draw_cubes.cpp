@@ -42,7 +42,11 @@ END_NAMELESS_STRUCT_DEF_BLOCK
 
 static inline struct Float32Vector3 V3(float x, float y, float z)
 {
-        return Float32Vector3 { { { x, y, z } } };
+		Float32Vector3 result;
+		result.x = x;
+		result.y = y;
+		result.z = z;
+		return result;
 }
 
 
