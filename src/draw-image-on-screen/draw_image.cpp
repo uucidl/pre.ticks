@@ -138,7 +138,7 @@ static void draw_image_on_screen(uint64_t time_micros,
                                         continue;
                                 }
                         }
-                        return std::move(RGBAImage { nullptr, 0, 0 });
+                        return RGBAImage { nullptr, 0, 0 };
                 };
 
                 {
