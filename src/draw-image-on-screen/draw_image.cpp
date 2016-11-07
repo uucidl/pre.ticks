@@ -82,7 +82,7 @@ static void draw_image_on_screen(uint64_t time_micros,
                         return std::make_pair(unique_cstr { nullptr, std::free }, unique_cstr { nullptr, std::free });
                 };
 
-                auto fsData = slurpDatafile("shader.fs");
+                auto fsData = slurpDatafile("draw_image.fs");
 
                 char const* fragmentShaderStrings[] = {
                         fsData.first.get(),
