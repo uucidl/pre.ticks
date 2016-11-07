@@ -278,6 +278,14 @@ static void draw_image_on_screen(uint64_t time_micros,
                 glUniform3fv(glGetUniformLocation(all.shaderProgram, "iResolution"), 1,
                              resolution);
 
+                GLfloat widthToHeightPixelRatio = 1.0f;
+                // stb_image does not give us physical aspect ratio of the
+                // source pixels, so we assume they're square
+                glUniform1fv(glGetUniformLocation(all.shaderProgram,
+                                                  "iChannel0WidthToHeightPixelRatio"),
+                             1,
+                             &widthToHeightPixelRatio);
+
                 auto globalTimeInSeconds = static_cast<GLfloat> (fmod(time_micros / 1e6,
                                            3600.0));
 

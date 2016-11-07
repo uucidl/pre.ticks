@@ -6,6 +6,8 @@
 uniform vec3 iResolution; // viewport resolution in pixels
 uniform float iGlobalTime; // shader playback time in seconds
 uniform sampler2D iChannel0; // first texture
+uniform float
+iChannel0WidthToHeightPixelRatio; // pixel aspect ratio of the source
 uniform int iInterpolationMethod; // whether to interpolate or not
 
 // outputs
@@ -301,25 +303,30 @@ void main()
         vec2 fragCoordFromCenter = gl_FragCoord.xy - screenCenterFragCoord;
 
         vec2 iChannel0Size = textureSize(iChannel0, 0);
-        vec2 uvPerFragCoord = 1.0 / iChannel0Size;
+        vec2 iChannel0TexelsFromPixels = vec2(
+                        1.0f / iChannel0WidthToHeightPixelRatio,
+                        1.0f);
+        vec2 uvPerFragCoord = iChannel0TexelsFromPixels / iChannel0Size;
 
         int interpolationMethod = LANCZOS3_RESAMPLING;
         if (mustScaleToFit) {
                 // scale photo so that at least one of its dimensions occupies the screen
-                float xs = iChannel0Size.x / iResolution.x;
-                float ys = iChannel0Size.y / iResolution.y;
+                vec2 pictureSizeInPixels = iChannel0Size / iChannel0TexelsFromPixels;
+                vec2 pictureScale = pictureSizeInPixels / iResolution.xy;
+                float maxPictureSpeed = max(pictureScale.x, pictureScale.y);
+                vec2 texelSpeed = maxPictureSpeed * iChannel0TexelsFromPixels;
 
-                float speed = max(xs, ys);
-                if (speed == 1.0) {
+                float maxTexelSpeed = max(texelSpeed.x, texelSpeed.y);
+                if (maxTexelSpeed == 1.0) {
                         interpolationMethod = LANCZOS3_RESAMPLING;
-                } else if (speed > 1.0) {
+                } else if (maxTexelSpeed > 1.0) {
                         // use mitchell netravalli when downsampling, as it softens a bit more
                         interpolationMethod = MITCHELL_NETRAVALLI_RESAMPLING;
-                } else if (speed < 1.0) {
+                } else if (maxTexelSpeed < 1.0) {
                         interpolationMethod = LANCZOS3_RESAMPLING;
                 }
 
-                uvPerFragCoord = speed / iChannel0Size;
+                uvPerFragCoord = texelSpeed / iChannel0Size;
         }
 
         // compute uv so the photo is centered
