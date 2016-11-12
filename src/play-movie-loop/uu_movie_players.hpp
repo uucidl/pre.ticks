@@ -329,7 +329,7 @@ void uu_movie_players::EnqueueURL(uu_movie_players::Queue* queue, char const* ur
                 FFMPEG::avformat_close_input(&format_context);
         });
         if (av_open_error != 0) {
-                print("with input file: %s\n", url_zstr);
+                print("with input file: %s\n", url_zstr.c_str());
                 log_averror(av_open_error);
                 UU_MOVIE_PLAYERS_DEBUGBREAK;
                 return;
