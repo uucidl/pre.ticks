@@ -1,7 +1,5 @@
 // # Movie playback using ffmpeg
 //
-// Not thread-safe, use only from one thread.
-//
 // Define UU_MOVIE_PLAYERS_IMPLEMENTATION to emit the implementation.
 //
 // ImportLib(avformat): demuxing (i.e. decoding container formats)
@@ -9,7 +7,9 @@
 // ImportLib(avutil): utilities for ffmpeg
 // ImportLib(swscale): scaling and pixel conversion
 //
-// TODO(nicolas): we actually want to play loops, not movies
+// # Roadmap
+//
+// TODO(nicolas): loop frame time is off by one frame
 
 #ifndef uu_internal_symbol
 #define uu_internal_symbol static
@@ -23,29 +23,20 @@
 #ifndef UU_MOVIE_PLAYERS_PROTOTYPES
 #define UU_MOVIE_PLAYERS_PROTOTYPES
 
-#include <memory>
+// # Interface
 
 namespace uu_movie_players
 {
 
-/// @p [[temporary_arena, temporary_arena_size)) defines a region used
-/// for temporary allocations.
 uu_movie_players_api
-void init(uint8_t* temporary_arena, size_t temporary_arena_size);
+void Init();
 
-namespace details
-{
-struct QueueDescription;
-uu_movie_players_api QueueDescription* make_queue_description();
-}
-
-struct Queue {
-        const std::unique_ptr<details::QueueDescription> queue {
-                details::make_queue_description() };
-};
+struct Queue;
+uu_movie_players_api Queue* MakeQueue();
+uu_movie_players_api void DestroyQueue(Queue*);
 
 uu_movie_players_api
-void enqueue_url(Queue* queue, char const* url,
+void EnqueueURL(Queue* queue, char const* url,
                  size_t url_size);
 
 struct Frame {
@@ -58,12 +49,25 @@ struct Frame {
 };
 
 uu_movie_players_api
-bool decode_step(Queue* queue_container,
+bool DecodeNextFrame(Queue* queue_container,
                  uint8_t* result_arena,
                  size_t result_arena_size, Frame* output);
 } // uu_movie_players namespace
 
-// Customization
+#include <memory>
+namespace std
+{
+  // adapter to make unique_ptr work with Queue
+  template <>
+  struct default_delete<uu_movie_players::Queue>
+  {
+    void operator()(uu_movie_players::Queue* x) const {
+      uu_movie_players::DestroyQueue(x);
+    }
+  };
+}
+
+// User-Customization
 
 // UU_MOVIE_PLAYERS_LOGFN(utf8_sym, size_sym): your logging function
 // UU_MOVIE_PLAYERS_TRACE_VALUE(name_sym, double_sym): a data tracing function
@@ -72,13 +76,15 @@ bool decode_step(Queue* queue_container,
 
 
 #ifdef UU_MOVIE_PLAYERS_IMPLEMENTATION
+// # Implementation
 
 #include <vector>
+#include <cstdint>
+#include <cstdio>
+#include <cstdarg>
 
 #define UU_MOVIE_PLAYERS_GLOBAL static
 #define UU_MOVIE_PLAYERS_INTERNAL static
-
-#include <cstdint>
 
 namespace uu_movie_players
 {
@@ -94,17 +100,11 @@ extern "C" {
 }
 }
 
-namespace std
-{
-using namespace ::std;
-}
-
 #ifndef UU_MOVIE_PLAYERS_LOGFN
-#include <cstdio>
 static inline void stdio_log(const char* utf8, size_t size)
 {
-        fwrite(utf8, size, 1, stdout);
-        fflush(stdout);
+        std::fwrite(utf8, size, 1, stdout);
+        std::fflush(stdout);
 }
 
 #define UU_MOVIE_PLAYERS_LOGFN(utf8_sym, size_sym) stdio_log(utf8_sym, size_sym)
@@ -125,12 +125,17 @@ static inline void log_formatted(char const* pattern_zstr, ...)
         va_list args;
         va_start(args, pattern_zstr);
         char buffer[4096];
-        (void) vsnprintf(buffer, sizeof buffer, pattern_zstr, args);
+        (void) std::vsnprintf(buffer, sizeof buffer, pattern_zstr, args);
         va_end(args);
         log_zstr(buffer);
 }
 
 #if !defined(UU_MOVIE_PLAYERS_TRACE_VALUE) || !defined(UU_MOVIE_PLAYERS_TRACE_STRING)
+#if !defined(UU_MOVIE_PLAYERS_DEV)
+// do nothing
+#define UU_MOVIE_PLAYERS_TRACE_VALUE(name_sym, double_sym)
+#define UU_MOVIE_PLAYERS_TRACE_STRING(name_sym, string_sym)
+#else
 UU_MOVIE_PLAYERS_INTERNAL struct trace_output {
         trace_output()
         {
@@ -145,20 +150,19 @@ UU_MOVIE_PLAYERS_INTERNAL struct trace_output {
         }
         FILE* fd = nullptr;
         uint64_t ts = 0;
-} trace_output;
-#endif
+} global_trace_output;
 
 #ifndef UU_MOVIE_PLAYERS_TRACE_VALUE
 #include <cstdio>
 
 static inline void trace_value(const char* name, double value)
 {
-        fprintf(trace_output.fd,
+        std::fprintf(global_trace_output.fd,
                 "value:%" PRIu64 ":%s: %f\n",
-                trace_output.ts++,
+                global_trace_output.ts++,
                 name,
                 value);
-        fflush(trace_output.fd);
+        std::fflush(global_trace_output.fd);
 }
 
 #define UU_MOVIE_PLAYERS_TRACE_VALUE(name_sym, double_value_sym) \
@@ -168,22 +172,29 @@ static inline void trace_value(const char* name, double value)
 #ifndef UU_MOVIE_PLAYERS_TRACE_STRING
 static inline void trace_string(const char* name, const char* str)
 {
-        fprintf(trace_output.fd,
+        std::fprintf(global_trace_output.fd,
                 "value:%" PRIu64 ":%s: %s\n",
-                trace_output.ts++,
+                global_trace_output.ts++,
                 name,
                 str);
-        fflush(trace_output.fd);
+        std::fflush(global_trace_output.fd);
 }
 
 #define UU_MOVIE_PLAYERS_TRACE_STRING(name_sym, string_sym) \
         trace_string(#name_sym, string_sym)
 #endif // UU_MOVIE_PLAYERS_TRACE_STRING
-
-#ifdef __clang__
-#define UU_MOVIE_PLAYERS_DEBUGBREAK asm("int3");
+#endif // UU_MOVIE_PLAYERS_DEV
 #endif
 
+#if !defined(UU_MOVIE_PLAYERS_DEV)
+#define UU_MOVIE_PLAYERS_DEBUGBREAK
+#else
+#if defined(__clang__)
+#define UU_MOVIE_PLAYERS_DEBUGBREAK asm("int3")
+#elif defined(_MSC_VER)
+#define UU_MOVIE_PLAYERS_DEBUGBREAK __debugbreak()
+#endif
+#endif
 
 static inline void log_averror(int averror)
 {
@@ -207,16 +218,15 @@ struct arena {
         size_t limit;
 };
 
-UU_MOVIE_PLAYERS_INTERNAL arena global_temporary_arena;
-
 UU_MOVIE_PLAYERS_INTERNAL
 byte_range push_bytes(arena* arena, size_t block_size)
 {
         if (block_size > arena->limit ||
             arena->limit - block_size < arena->range.size) {
-                // TODO(nicolas): should that trigger new dynamic
-                // arena allocation?
-                log_zstr("Not enough memory");
+                log_formatted(
+                  "Not enough memory: allocated already %lld, wants %lld more\n",
+                  arena->range.size,
+                  block_size);
                 UU_MOVIE_PLAYERS_DEBUGBREAK;
                 return {};
         }
@@ -226,41 +236,6 @@ byte_range push_bytes(arena* arena, size_t block_size)
         arena->range.size += block_size;
         return block;
 }
-
-UU_MOVIE_PLAYERS_INTERNAL
-char* copy_zstr(char const* str, size_t str_size, arena* arena)
-{
-        auto block = push_bytes(arena, 1+str_size);
-        if (block.size == 0) {
-                return nullptr;
-        }
-        memcpy(block.start, str, str_size);
-        block.start[str_size] = '\0';
-        return (char*)block.start;
-}
-
-
-uu_movie_players_api
-void init(uint8_t* temporary_arena, size_t temporary_arena_size)
-{
-        FFMPEG::av_register_all();
-        FFMPEG::av_log_set_level(AV_LOG_WARNING);
-        global_temporary_arena.range.start = temporary_arena;
-        global_temporary_arena.range.size = 0;
-        global_temporary_arena.limit = temporary_arena_size;
-        log_formatted("using avformat %d, %s\n",
-                      FFMPEG::avformat_version(),
-                      FFMPEG::avformat_license());
-        log_formatted("using avcodec %d, %s\n",
-                      FFMPEG::avcodec_version(),
-                      FFMPEG::avcodec_license());
-        log_formatted("using swscale %d, %s\n",
-                      FFMPEG::swscale_version(),
-                      FFMPEG::swscale_license());
-}
-
-namespace details
-{
 
 template <typename Proc>
 struct scope_guard {
@@ -315,43 +290,43 @@ struct avresources {
 struct source {
         avresources av;
         FFMPEG::AVPixelFormat output_format;
+        int64_t source_first_pts = std::numeric_limits<int64_t>::max();
         uint64_t frame_last_ts_micros;
         uint64_t frame_origin_ts_micros;
 
 };
 
-struct QueueDescription {
+struct Queue {
         std::vector<source> sources;
         size_t source_index = 0;
 };
+} // uu_movie_players namespace end
 
 uu_movie_players_api
-QueueDescription* make_queue_description()
+uu_movie_players::Queue* uu_movie_players::MakeQueue()
 {
-        return new QueueDescription;
-}
-
+        return new Queue;
 }
 
 uu_movie_players_api
-void enqueue_url(Queue* queue, char const* url,
+void uu_movie_players::DestroyQueue(uu_movie_players::Queue* queue)
+{
+        delete queue;
+}
+
+uu_movie_players_api
+void uu_movie_players::EnqueueURL(uu_movie_players::Queue* queue, char const* url,
                  size_t url_size)
 {
         auto print = log_formatted;
         FFMPEG::AVFormatContext* format_context = nullptr; // allocate one for me
-        // TODO(nicolas): not thread safe obviously
-        auto original_arena = global_temporary_arena;
-        auto arena_cleanup = details::defer([&]() {
-                global_temporary_arena = original_arena;
-        });
-        char const* url_zstr = copy_zstr(url, url_size, &global_temporary_arena);
-
+        std::string url_zstr{url, url + url_size};
         auto av_open_error = FFMPEG::avformat_open_input(
                                      &format_context,
-                                     url_zstr,
+                                     url_zstr.c_str(),
                                      nullptr,
                                      nullptr);
-        auto close_stream = details::defer([&]() {
+        auto close_stream = defer([&]() {
                 FFMPEG::avformat_close_input(&format_context);
         });
         if (av_open_error != 0) {
@@ -406,7 +381,7 @@ void enqueue_url(Queue* queue, char const* url,
         }
 
         print("---\n");
-        print("opened url: %s\n", url_zstr);
+        print("opened url: %s\n", url_zstr.c_str());
         print("flags: %d\n", format_context->ctx_flags);
         print("\tAVFMTCTX_NOHEADER: %d\n",
               format_context->ctx_flags & AVFMTCTX_NOHEADER);
@@ -463,7 +438,7 @@ void enqueue_url(Queue* queue, char const* url,
                 print("failed to allocate codec context\n");
                 return;
         }
-        auto free_codec = details::defer([&]() {
+        auto free_codec = defer([&]() {
                 FFMPEG::avcodec_free_context(&video_codec_context);
         });
 
@@ -486,7 +461,7 @@ void enqueue_url(Queue* queue, char const* url,
         }
 
         print ("%d x %d\n", video_codec_context->width, video_codec_context->height);
-        UU_MOVIE_PLAYERS_TRACE_STRING(movie.url, url_zstr);
+        UU_MOVIE_PLAYERS_TRACE_STRING(movie.url, url_zstr.c_str());
         UU_MOVIE_PLAYERS_TRACE_VALUE(video.pix_fmt, video_codec_context->pix_fmt);
 
         auto output_format = FFMPEG::AV_PIX_FMT_RGBA;
@@ -517,46 +492,65 @@ void enqueue_url(Queue* queue, char const* url,
 
 
         {
-                details::source source = {};
+                source source = {};
                 source.av.underlying.format_context = format_context;
                 source.av.underlying.decoding_context = video_codec_context;
                 source.av.underlying.conversion_context = sws_context;
                 source.av.underlying.stream_index = video_stream_index;
                 source.output_format = output_format;
-                queue->queue->sources.emplace_back(std::move(source));
+                queue->sources.emplace_back(std::move(source));
                 video_codec_context = nullptr;
                 format_context = nullptr;
         }
 }
 
 uu_movie_players_api
-bool decode_step(Queue* queue_container,
+void uu_movie_players::Init()
+{
+        FFMPEG::av_register_all();
+        FFMPEG::av_log_set_level(AV_LOG_WARNING);
+        log_formatted("using avformat %d, %s\n",
+                      FFMPEG::avformat_version(),
+                      FFMPEG::avformat_license());
+        log_formatted("using avcodec %d, %s\n",
+                      FFMPEG::avcodec_version(),
+                      FFMPEG::avcodec_license());
+        log_formatted("using swscale %d, %s\n",
+                      FFMPEG::swscale_version(),
+                      FFMPEG::swscale_license());
+}
+
+uu_movie_players_api
+bool uu_movie_players::DecodeNextFrame(Queue* queue_ptr,
                  uint8_t* result_arena,
                  size_t result_arena_size, Frame* output)
 {
-        // TODO(nicolas):
         auto const print = log_formatted;
         arena arena = { { result_arena, 0 }, result_arena_size };
-        auto& queue = *(queue_container->queue);
-        struct image {
+        auto& queue = *queue_ptr;
+        struct Image {
                 uint8_t* data;
                 size_t width;
                 size_t height;
         };
 
-        struct image_pointers {
+        struct ImagePointers {
                 uint8_t** dst;
                 int* dst_stride;
         };
 
-        auto allocate_image = [&](details::source& source) -> image {
+        auto allocate_image = [&](source& source) -> Image {
                 size_t width = source.av.get().decoding_context->width;
                 size_t height = source.av.get().decoding_context->height;
                 auto range = push_bytes(&arena, 4*width*height);
-                return image{ range.start, width, height };
+                if (range.size == 0)
+                {
+                  return Image{};
+                }
+                return Image{ range.start, width, height };
         };
 
-        auto allocate_image_pointers = [&](image image) -> image_pointers {
+        auto allocate_image_pointers = [&](Image image) -> ImagePointers {
                 uint8_t** dst;
                 int* dst_stride;
                 dst = reinterpret_cast<uint8_t**>(push_bytes(&arena, sizeof(*dst) * image.height).start);
@@ -569,14 +563,14 @@ bool decode_step(Queue* queue_container,
                         dst[row_index] = dst[row_index - 1] + stride;
                         dst_stride[row_index] = stride;
                 }
-                return image_pointers{ dst, dst_stride };
+                return ImagePointers{ dst, dst_stride };
         };
 
         auto reset_arena = [&]() {
                 arena.range.size = 0;
         };
 
-        details::source* source;
+        source* source;
         bool next_movie = false;
         double frame_timestamp_origin = 0.0;
         do {
@@ -599,7 +593,7 @@ bool decode_step(Queue* queue_container,
                 FFMPEG::AVPacket packet = {};
                 const auto av_read_error = FFMPEG::av_read_frame
                                            (format_context, &packet);
-                auto cleanup_packet = details::defer([&]() {
+                auto cleanup_packet = defer([&]() {
                         FFMPEG::av_packet_unref(&packet);
 
                 });
@@ -611,11 +605,14 @@ bool decode_step(Queue* queue_container,
                                 print("\n");
                         }
 
+						// TODO(nicolas): don't loop if we get an EOF error on the first
+						// frame
+
                         // when looping we seek back to the beginning
                         auto seek_error =
                                 FFMPEG::av_seek_frame(format_context,
-                                                      -1,
-                                                      0,
+                                                      stream_index,
+                                                      source->source_first_pts,
                                                       AVSEEK_FLAG_BACKWARD);
                         if (seek_error < 0) {
                                 print("error in av_seek_frame: ");
@@ -650,7 +647,7 @@ bool decode_step(Queue* queue_container,
                         FFMPEG::AVFrame video_frame = {};
                         const auto codec_frame_error = FFMPEG::avcodec_receive_frame(decoding_context,
                                                        &video_frame);
-                        auto cleanup_frame = details::defer([&]() {
+                        auto cleanup_frame = defer([&]() {
                                 if (codec_frame_error == 0) {
                                         av_frame_unref(&video_frame);
                                 }
@@ -673,6 +670,10 @@ bool decode_step(Queue* queue_container,
                                         &video_frame);
                         auto guessed_timestamp = FFMPEG::av_frame_get_best_effort_timestamp(
                                                          &video_frame);
+                        if (guessed_timestamp < source->source_first_pts) {
+                          // only happens on the first frame, if the frames are monotonic
+                          source->source_first_pts = guessed_timestamp;
+                        }
                         UU_MOVIE_PLAYERS_TRACE_VALUE(stream.time_base_num, stream->time_base.num);
                         UU_MOVIE_PLAYERS_TRACE_VALUE(stream.time_base_den, stream->time_base.den);
                         UU_MOVIE_PLAYERS_TRACE_VALUE(context.time_base_num,
@@ -690,10 +691,14 @@ bool decode_step(Queue* queue_container,
                         UU_MOVIE_PLAYERS_TRACE_VALUE(frame.best_effort_timestamp,
                                                      guessed_timestamp);
 
-                        double ms = 1000.0 * guessed_timestamp * FFMPEG::av_q2d(stream->time_base);
+                        double ms = 1000.0 * (guessed_timestamp - source->source_first_pts) * FFMPEG::av_q2d(stream->time_base);
                         UU_MOVIE_PLAYERS_TRACE_VALUE(frame.ms, ms);
-                        output->ts_micros = ms*1000;
+                        
+                        uint64_t source_ts_micros = ms*1000;
+                        output->ts_micros = source_ts_micros;
                         output->ts_micros += source->frame_origin_ts_micros;
+                        
+                        
                         source->frame_last_ts_micros = output->ts_micros;
 
                         if (video_frame.format == FFMPEG::AV_PIX_FMT_YUV420P) {
@@ -701,6 +706,11 @@ bool decode_step(Queue* queue_container,
                         }
 
                         auto image = allocate_image(*source);
+                        if (!image.data)
+                        {
+                          print("not enough memory for frame\n");
+                          return false;
+                        }
                         auto image_pointers = allocate_image_pointers(image);
                         FFMPEG::sws_scale(conversion_context,
                                           video_frame.data,
@@ -726,5 +736,4 @@ bool decode_step(Queue* queue_container,
         } while (true);
 }
 
-}
 #endif

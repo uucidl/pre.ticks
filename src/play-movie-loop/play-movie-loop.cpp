@@ -15,7 +15,7 @@
 
 //#define UU_MOVIE_PLAYERS_TRACE_VALUE(name_sym, double_sym)
 //#define UU_MOVIE_PLAYERS_TRACE_STRING(name_sym, string_sym)
-#include "ffmpeg_movie.cpp"
+#include "uu_movie_players.hpp"
 
 #include "../common.hpp"
 
@@ -295,25 +295,25 @@ static void draw_image_on_screen(
         glUseProgram(0);
 }
 
-static uu_movie_players::Queue global_movie_queue;
+static std::unique_ptr<uu_movie_players::Queue> global_movie_queue { uu_movie_players::MakeQueue() };
 
 extern
 void render_next_gl3(uint64_t now_micros, Display display)
 {
         static std::vector<uint8_t> frame_memory(4096*4096*4);
-        static uu_movie_players::Frame frame;
+        static uu_movie_players::Frame frame = {};
         static uint64_t origin_micros = now_micros;
         glClearColor(0.14f, 0.15f, 0.134f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         bool got_frame = true;
         now_micros -= origin_micros;
         while(got_frame && frame.ts_micros < now_micros) {
-                got_frame = uu_movie_players::decode_step(&global_movie_queue,
+                got_frame = uu_movie_players::DecodeNextFrame(global_movie_queue.get(),
                                 frame_memory.data(),
                                 frame_memory.size(), &frame);
         }
 
-        if (got_frame) {
+        if (frame.data) {
                 const float width_to_height_pixel_ratio =
                         (float(frame.aspect_ratio_numerator)
                          / float(frame.aspect_ratio_denominator));
@@ -335,12 +335,10 @@ void render_next_2chn_48khz_audio(uint64_t now_micros, int, double*, double*)
 extern int
 main (int argc, char** argv)
 {
-        std::vector<uint8_t> temporary_arena;
-        temporary_arena.resize(8*1024);
-        uu_movie_players::init(temporary_arena.data(), temporary_arena.size());
+        uu_movie_players::Init();
         for (int arg_index = 1; arg_index < argc; ++arg_index) {
                 auto url = argv[arg_index];
-                uu_movie_players::enqueue_url(&global_movie_queue,
+                uu_movie_players::EnqueueURL(global_movie_queue.get(),
                                               url,
                                               strlen(url));
         }
@@ -349,6 +347,6 @@ main (int argc, char** argv)
 }
 
 #define UU_MOVIE_PLAYERS_IMPLEMENTATION
-#include "ffmpeg_movie.cpp"
+#include "uu_movie_players.hpp"
 
 #include "../common.cpp"
