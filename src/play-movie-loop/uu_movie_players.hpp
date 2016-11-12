@@ -237,13 +237,11 @@ byte_range push_bytes(arena* arena, size_t block_size)
 }
 
 template <typename Proc>
-struct scope_guard {
-        scope_guard(Proc proc) : cleanup_proc(proc) {}
-        // TODO(nicolas): do we prevent the scope_guard from being
-        // executed after being moved from?
-        scope_guard(scope_guard&& x) = default;
-        scope_guard(scope_guard&) = delete;
-        ~scope_guard()
+struct scope_exit {
+        scope_exit(Proc proc) : cleanup_proc(proc) {}
+        scope_exit(scope_exit&& x) = default;
+        scope_exit(scope_exit&) = delete;
+        ~scope_exit()
         {
                 cleanup_proc();
         };
@@ -251,10 +249,10 @@ struct scope_guard {
 };
 
 template <typename Proc>
-[[gnu::warn_unused_result]] scope_guard<Proc>
+[[gnu::warn_unused_result]] scope_exit<Proc>
 defer(Proc proc)
 {
-        return scope_guard<Proc>(proc);
+        return scope_exit<Proc>(proc);
 }
 
 struct avresources_header {
