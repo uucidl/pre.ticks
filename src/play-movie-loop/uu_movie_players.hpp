@@ -23,8 +23,7 @@
 #ifndef UU_MOVIE_PLAYERS_PROTOTYPES
 #define UU_MOVIE_PLAYERS_PROTOTYPES
 
-// # Interface
-
+// # Interface(uu_movie_players)
 namespace uu_movie_players
 {
 
@@ -76,7 +75,7 @@ namespace std
 
 
 #ifdef UU_MOVIE_PLAYERS_IMPLEMENTATION
-// # Implementation
+// # Implementation(uu_movie_players)
 
 #include <vector>
 #include <cstdint>
