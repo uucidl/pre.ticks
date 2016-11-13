@@ -22,6 +22,8 @@
 #ifndef UU_MOVIE_PLAYERS_PROTOTYPES
 #define UU_MOVIE_PLAYERS_PROTOTYPES
 
+// Module(uu_movie_players)
+// Version(0.0.1)
 // # Interface(uu_movie_players)
 namespace uu_movie_players
 {
