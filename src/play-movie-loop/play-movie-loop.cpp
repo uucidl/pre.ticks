@@ -339,8 +339,8 @@ main (int argc, char** argv)
         for (int arg_index = 1; arg_index < argc; ++arg_index) {
                 auto url = argv[arg_index];
                 uu_movie_players::EnqueueURL(global_movie_queue.get(),
-                                              url,
-                                              strlen(url));
+                                             url,
+                                             strlen(url));
         }
         runtime_init();
         return 0;
